@@ -55,7 +55,7 @@ const int   DELIVERY_ID   = 1;
 
 #define PIN_MQ135_ANALOG 4 // Safe ADC1 pin
 
-#define PIN_GPS_RX      17 // Connects to GPS Module TX
+#define PIN_GPS_RX      17 // Connects to GPS Module TX/Users/pritthacker/MST/firmware/MultiSigTerminal.ino
 #define PIN_GPS_TX      18 // Connects to GPS Module RX
 
 // --- Hardware Objects ---
@@ -112,50 +112,89 @@ void setup() {
   // 5. Initialize NEO-6M GPS on HardwareSerial 2
   gpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
-  // 6. Initialize RC522 RFID on Custom SPI Pins
-  pinMode(PIN_RFID_SS, OUTPUT);
-  digitalWrite(PIN_RFID_SS, HIGH);
-  pinMode(PIN_RFID_RST, OUTPUT);
-  digitalWrite(PIN_RFID_RST, HIGH);
-  delay(20);
+  // 6. Initialize RC522 RFID with Intelligent Pin Auto-Probe
+  Serial.println("\n[RFID Probe] Starting RC522 hardware auto-detection across header configurations...");
+  updateOled("PROBING RC522...", "Testing SPI Bus");
 
-  // Passing -1 for SS prevents ESP32 hardware SPI peripheral from locking GPIO10
-  SPI.begin(PIN_RFID_SCK, PIN_RFID_MISO, PIN_RFID_MOSI, -1);
-  delay(50);
+  struct SpiPinConfig {
+    int sck;
+    int mosi;
+    int miso;
+    int ss;
+    int rst;
+    const char* label;
+  };
 
-  rfid.PCD_Init();
-  delay(50);
+  SpiPinConfig configs[] = {
+    // 1. Standard expected wiring
+    { 12, 11, 13, 10, 6, "Standard: SCK=12, MOSI=11, MISO=13, SS=10, RST=6" },
+    // 2. Swapped SCK and MOSI (Header Pins 30 and 28)
+    { 11, 12, 13, 10, 6, "Swapped SCK/MOSI: SCK=11, MOSI=12, MISO=13, SS=10" },
+    // 3. Swapped MOSI and MISO (Header Pins 28 and 32)
+    { 12, 13, 11, 10, 6, "Swapped MOSI/MISO: SCK=12, MOSI=13, MISO=11, SS=10" },
+    // 4. Sequential pin order matching RC522 PCB header (SDA=10, SCK=11, MOSI=12, MISO=13)
+    { 11, 13, 12, 10, 6, "Sequential: SCK=11, MOSI=13, MISO=12, SS=10" },
+    // 5. Alternate permutations
+    { 13, 11, 12, 10, 6, "Alternate: SCK=13, MOSI=11, MISO=12, SS=10" },
+    { 13, 12, 11, 10, 6, "Alternate: SCK=13, MOSI=12, MISO=11, SS=10" },
+    // 6. Same candidates with RST = 255 (if user wired RST directly to 3.3V rail)
+    { 12, 11, 13, 10, 255, "RST on 3.3V: SCK=12, MOSI=11, MISO=13, SS=10" },
+    { 11, 12, 13, 10, 255, "RST on 3.3V + Swapped SCK/MOSI" },
+    { 12, 13, 11, 10, 255, "RST on 3.3V + Swapped MOSI/MISO" },
+    // 7. Swapped SS and RST (Pin 26 vs Pin 6)
+    { 12, 11, 13, 6, 10, "Swapped SS/RST: SS=6, RST=10" },
+    { 11, 12, 13, 6, 10, "Swapped SS/RST + SCK/MOSI" },
+    // 8. Lower header pins (if counted from opposite end: GPIO 15, 16, 17, 18)
+    { 16, 17, 18, 15, 6, "Opposite End: SCK=16, MOSI=17, MISO=18, SS=15" }
+  };
 
-  // Boost antenna gain to maximum (48dB) for best range & sensitivity
-  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+  bool rfidFound = false;
+  byte rfidVer = 0x00;
 
-  // Read firmware version register to diagnose communication
-  byte rfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
-  Serial.printf("\n[RFID Diagnostic] MFRC522 Chip Version Register: 0x%02X\n", rfidVer);
+  for (size_t i = 0; i < sizeof(configs)/sizeof(configs[0]); i++) {
+    const auto& c = configs[i];
+    pinMode(c.ss, OUTPUT);
+    digitalWrite(c.ss, HIGH);
+    if (c.rst != 255) {
+      pinMode(c.rst, OUTPUT);
+      digitalWrite(c.rst, HIGH);
+    }
 
-  if (rfidVer == 0x91 || rfidVer == 0x92) {
-    Serial.println("[RFID Status] SUCCESS: RC522 communicates properly over SPI (v" + String(rfidVer == 0x92 ? "2.0" : "1.0") + ")");
-    updateOled("RC522: OK", "Reader Ready");
-  } else if (rfidVer == 0x12) {
-    Serial.println("[RFID Status] SUCCESS: RC522 clone detected (0x12) - communication OK");
-    updateOled("RC522: OK", "Clone Ready");
-  } else if (rfidVer == 0x00 || rfidVer == 0xFF) {
-    Serial.println("=============================================================");
-    Serial.printf("[RFID CRITICAL ERROR] RC522 NOT RESPONDING (Version: 0x%02X)!\n", rfidVer);
-    Serial.println("-> The ESP32 cannot communicate with the RC522 chip.");
-    Serial.println("-> PLEASE CHECK YOUR WIRING:");
-    Serial.println("   RC522 3.3V  -> P1 Pin 1 or 3 (MUST BE 3.3V, NOT 5V!)");
-    Serial.println("   RC522 GND   -> P1 Pin 21 or 25");
-    Serial.println("   RC522 RST   -> P1 Pin 6 (GPIO6) [or 3.3V]");
-    Serial.println("   RC522 SDA   -> P1 Pin 26 (GPIO10)");
-    Serial.println("   RC522 MOSI  -> P1 Pin 28 (GPIO11)");
-    Serial.println("   RC522 SCK   -> P1 Pin 30 (GPIO12)");
-    Serial.println("   RC522 MISO  -> P1 Pin 32 (GPIO13)");
-    Serial.println("=============================================================");
-    updateOled("RC522: WIRING ERR", "Check 3.3V/Pins");
+    SPI.end();
+    delay(5);
+    SPI.begin(c.sck, c.miso, c.mosi, -1);
+    delay(10);
+
+    rfid.PCD_Init(c.ss, c.rst);
+    delay(15);
+
+    rfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
+    Serial.printf("[Probe %d/%d] %s -> Ver: 0x%02X\n", (int)i+1, (int)(sizeof(configs)/sizeof(configs[0])), c.label, rfidVer);
+
+    if (rfidVer == 0x91 || rfidVer == 0x92 || rfidVer == 0x12) {
+      Serial.printf("\n⭐ [SUCCESS] RC522 Found! Connected on: %s (Reg: 0x%02X)\n\n", c.label, rfidVer);
+      rfidFound = true;
+      rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+      updateOled("RC522: OK", "Auto-Connected!");
+      delay(1500);
+      break;
+    }
+  }
+
+  if (!rfidFound) {
+    Serial.println("\n=============================================================");
+    Serial.println("[CRITICAL HARDWARE FAULT] RC522 NOT RESPONDING ON ANY PIN CONFIG!");
+    Serial.println("Every tested SPI pin combination returned 0x00 or 0xFF.");
+    Serial.println("This means there is NO electrical signal reaching the RC522 chip.");
+    Serial.println("-------------------------------------------------------------");
+    Serial.println("PLEASE INSPECT THE HARDWARE:");
+    Serial.println(" 1. ARE THE PINS SOLDERED? (Unsoldered loose header pins DO NOT WORK!)");
+    Serial.println(" 2. POWER: RC522 VCC must be on 3.3V (Header Pin 1 or 3). NOT 5V!");
+    Serial.println(" 3. GROUND: RC522 GND must be on Header Pin 21 or 25.");
+    Serial.println(" 4. RESET: RC522 RST should be connected to Pin 6 (GPIO6) or 3.3V.");
+    Serial.println("=============================================================\n");
+    updateOled("RC522: WIRING ERR", "Check 3.3V & GND");
     delay(3000);
-  } else {
-    Serial.printf("[RFID Status] RC522 custom chip 0x%02X initialized.\n", rfidVer);
   }
 
   // 7. Connect to WiFi
