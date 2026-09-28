@@ -137,6 +137,15 @@ void loop() {
     rfid.PCD_StopCrypto1();
   }
 
+  // Check onboard user button from STM32 motion controller (Newrick library)
+  if (nr.buttonState > 0) {
+    Serial.println("\n[Button] Onboard user button pressed! Triggering manual status & telemetry sync...");
+    updateOled("SYNCING STATUS", "Checking Blockchain...");
+    pollDeliveryStatus();
+    sendTelemetry(distanceCm);
+    delay(400); // Simple debounce
+  }
+
   // Periodic Environmental Telemetry Reporting (every 4 seconds)
   if (millis() - lastTelemetryTime > 4000) {
     lastTelemetryTime = millis();
