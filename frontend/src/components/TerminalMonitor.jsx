@@ -250,6 +250,24 @@ export default function TerminalMonitor({ activeDeliveryId }) {
             />
           </div>
 
+          {hardwareScanState?.error && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#ef4444',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertTriangle size={16} />
+              <span>Hardware Scan Notice: {hardwareScanState.error}</span>
+            </div>
+          )}
+
           {/* Condition 1: Card already scanned and confirmed on-chain */}
           {hardwareScanState?.confirmedOnChain && hardwareScanState?.deliveryId === Number(scanDeliveryId) ? (
             <div style={{

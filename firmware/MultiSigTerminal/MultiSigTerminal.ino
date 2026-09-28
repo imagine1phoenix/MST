@@ -11,52 +11,54 @@
  *  - MQ135 Gas Sensor:   Analog->IO4 (ADC1)
  *  - NEO-6M GPS (UART):  TX->IO17 (RX2), RX->IO18 (TX2)
  *  - SSD1306 OLED (I2C): IO8 (SDA), IO9 (SCL) @ Address 0x3C
- *  - Locker Servo:       Neurick Servo Port 1 (6.5V rail via STM32 / Newrick library)
+ *  - Locker Servo:       Neurick Servo Port 1 (6.5V rail via STM32 / Newrick
+ * library)
  * ============================================================================
  */
 
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <Wire.h>
-#include <SPI.h>
-#include <MFRC522.h>
-#include <TinyGPSPlus.h>
-#include <DHT.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <DHT.h>
+#include <HTTPClient.h>
+#include <MFRC522.h>
 #include <Newrick.h>
+#include <SPI.h>
+#include <TinyGPSPlus.h>
+#include <WiFi.h>
+#include <Wire.h>
 
 // Forward declarations for C++ compiler
 float readUltrasonicCm();
 void handleRfidTap();
 void sendTelemetry(float distanceCm);
 void pollDeliveryStatus();
-void updateOled(const char* line1, const char* line2);
+void updateOled(const char *line1, const char *line2);
 void connectWiFi();
+void syncDeliveryId();
 
 // --- Configuration ---
-const char* WIFI_SSID     = "BMS_Buildathon";
-const char* WIFI_PASSWORD = "Bmsce$2026$!";
-const char* RELAY_HOST    = "http://10.80.79.100:5001"; // Mac Relay IP
-const int   DELIVERY_ID   = 1;
+const char *WIFI_SSID = "BMS_Buildathon";
+const char *WIFI_PASSWORD = "Bmsce$2026$!";
+const char *RELAY_HOST = "http://10.80.79.100:5001"; // Mac Relay IP
+int currentDeliveryId = 8; // Synced dynamically from relay server
 
 // --- Pin Definitions (P1 Expansion Header) ---
-#define PIN_RFID_SS     10
-#define PIN_RFID_RST    6
-#define PIN_RFID_MOSI   11
-#define PIN_RFID_SCK    12
-#define PIN_RFID_MISO   13
+#define PIN_RFID_SS 10
+#define PIN_RFID_RST 6
+#define PIN_RFID_MOSI 11
+#define PIN_RFID_SCK 12
+#define PIN_RFID_MISO 13
 
-#define PIN_US_TRIG     15
-#define PIN_US_ECHO     16
+#define PIN_US_TRIG 15
+#define PIN_US_ECHO 16
 
-#define PIN_DHT_DATA    5
-#define DHTTYPE         DHT22
+#define PIN_DHT_DATA 5
+#define DHTTYPE DHT22
 
 #define PIN_MQ135_ANALOG 4 // Safe ADC1 pin
 
-#define PIN_GPS_RX      17 // Connects to GPS Module TX
-#define PIN_GPS_TX      18 // Connects to GPS Module RX
+#define PIN_GPS_RX 17 // Connects to GPS Module TX
+#define PIN_GPS_TX 18 // Connects to GPS Module RX
 
 // --- Hardware Objects ---
 TinyGPSPlus gps;
@@ -84,8 +86,8 @@ void setup() {
   Serial.println("\n[Terminal] Starting MST Smart Delivery Terminal...");
 
   // 1. Initialize Neurick Board & I2C Bus
-  // NOTE: According to Neurick manual, nr.begin() starts I2C on SDA=8, SCL=9 at 400kHz.
-  // Never call Wire.begin() separately!
+  // NOTE: According to Neurick manual, nr.begin() starts I2C on SDA=8, SCL=9 at
+  // 400kHz. Never call Wire.begin() separately!
   nr.begin();
   nr.servo(0, 0, 0); // Lock compartment latch initially
 
@@ -112,95 +114,60 @@ void setup() {
   // 5. Initialize NEO-6M GPS on HardwareSerial 2
   gpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
-  // 6. Initialize RC522 RFID with Intelligent Pin Auto-Probe
-  Serial.println("\n[RFID Probe] Starting RC522 hardware auto-detection across header configurations...");
-  updateOled("PROBING RC522...", "Testing SPI Bus");
+  // 6. Initialize RC522 RFID on Custom SPI Pins
+  Serial.println("\n[Terminal] Initializing MFRC522 RFID reader...");
+  updateOled("INIT RC522...", "Connecting SPI");
 
-  struct SpiPinConfig {
-    int sck;
-    int mosi;
-    int miso;
-    int ss;
-    int rst;
-    const char* label;
-  };
+  // Hardware Reset pulse to RC522
+  pinMode(PIN_RFID_RST, OUTPUT);
+  digitalWrite(PIN_RFID_RST, LOW);
+  delay(10);
+  digitalWrite(PIN_RFID_RST, HIGH);
+  delay(50);
 
-  SpiPinConfig configs[] = {
-    // 0. Newrro Sensor Shield CN2 Connector (Yellow wire on SDA, Black on SCK):
-    { 3, 18, 17, 16, 15, "Newrro CN2 Shield: SDA=16(Yellow), SCK=3(Black), MOSI=18, MISO=17, RST=15" },
-    // 0b. Newrro Sensor Shield CN2 (Black wire on SDA, Yellow on SCK):
-    { 16, 18, 17, 3, 15, "Newrro CN2 Shield: SDA=3(Black), SCK=16(Yellow), MOSI=18, MISO=17, RST=15" },
-    // 0c. Newrro CN2 Shield with RST on 3.3V:
-    { 3, 18, 17, 16, 255, "Newrro CN2 Shield (RST tied high)" },
-    { 16, 18, 17, 3, 255, "Newrro CN2 Shield (RST tied high, swapped SDA/SCK)" },
+  pinMode(PIN_RFID_SS, OUTPUT);
+  digitalWrite(PIN_RFID_SS, HIGH);
+  delay(10);
 
-    // 1. Standard expected direct P1 header wiring:
-    { 12, 11, 13, 10, 6, "P1 Direct: SCK=12, MOSI=11, MISO=13, SS=10, RST=6" },
-    // 2. Swapped SCK and MOSI (Header Pins 30 and 28):
-    { 11, 12, 13, 10, 6, "P1 Swapped SCK/MOSI: SCK=11, MOSI=12, MISO=13, SS=10" },
-    // 3. Swapped MOSI and MISO (Header Pins 28 and 32):
-    { 12, 13, 11, 10, 6, "P1 Swapped MOSI/MISO: SCK=12, MOSI=13, MISO=11, SS=10" },
-    // 4. Sequential pin order matching RC522 PCB header:
-    { 11, 13, 12, 10, 6, "P1 Sequential: SCK=11, MOSI=13, MISO=12, SS=10" },
-    // 5. Alternate permutations:
-    { 13, 11, 12, 10, 6, "P1 Alternate: SCK=13, MOSI=11, MISO=12, SS=10" },
-    { 13, 12, 11, 10, 6, "P1 Alternate: SCK=13, MOSI=12, MISO=11, SS=10" },
-    // 6. Same candidates with RST = 255 (if user wired RST directly to 3.3V rail):
-    { 12, 11, 13, 10, 255, "P1 RST on 3.3V: SCK=12, MOSI=11, MISO=13, SS=10" },
-    { 11, 12, 13, 10, 255, "P1 RST on 3.3V + Swapped SCK/MOSI" },
-    { 12, 13, 11, 10, 255, "P1 RST on 3.3V + Swapped MOSI/MISO" },
-    // 7. Swapped SS and RST (Pin 26 vs Pin 6):
-    { 12, 11, 13, 6, 10, "P1 Swapped SS/RST: SS=6, RST=10" },
-    { 11, 12, 13, 6, 10, "P1 Swapped SS/RST + SCK/MOSI" }
-  };
+  // Passing -1 for SS prevents ESP32 hardware SPI peripheral from locking GPIO10
+  SPI.begin(PIN_RFID_SCK, PIN_RFID_MISO, PIN_RFID_MOSI, -1);
+  delay(50);
 
-  bool rfidFound = false;
-  byte rfidVer = 0x00;
+  rfid.PCD_Init();
+  delay(50);
 
-  for (size_t i = 0; i < sizeof(configs)/sizeof(configs[0]); i++) {
-    const auto& c = configs[i];
-    pinMode(c.ss, OUTPUT);
-    digitalWrite(c.ss, HIGH);
-    if (c.rst != 255) {
-      pinMode(c.rst, OUTPUT);
-      digitalWrite(c.rst, HIGH);
-    }
+  // Boost antenna gain to maximum (48dB) for best range & sensitivity
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
 
-    SPI.end();
-    delay(5);
-    SPI.begin(c.sck, c.miso, c.mosi, -1);
-    delay(10);
+  byte rfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
+  Serial.printf("\n[RFID Diagnostic] MFRC522 Chip Version Register: 0x%02X\n", rfidVer);
 
-    rfid.PCD_Init(c.ss, c.rst);
-    delay(15);
-
+  if (rfidVer == 0x91 || rfidVer == 0x92) {
+    Serial.println("[RFID Status] SUCCESS: RC522 communicates properly over SPI (v" + String(rfidVer == 0x92 ? "2.0" : "1.0") + ")");
+    updateOled("RC522: OK", "Reader Ready");
+    delay(1000);
+  } else if (rfidVer == 0x12) {
+    Serial.println("[RFID Status] SUCCESS: RC522 clone detected (0x12) - communication OK");
+    updateOled("RC522: OK", "Clone Ready");
+    delay(1000);
+  } else {
+    // Retry once with soft reset if chip was busy
+    rfid.PCD_Reset();
+    delay(50);
+    rfid.PCD_Init();
+    delay(50);
+    rfid.PCD_SetAntennaGain(rfid.RxGain_max);
     rfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
-    Serial.printf("[Probe %d/%d] %s -> Ver: 0x%02X\n", (int)i+1, (int)(sizeof(configs)/sizeof(configs[0])), c.label, rfidVer);
-
+    Serial.printf("[RFID Diagnostic] Retry Version: 0x%02X\n", rfidVer);
     if (rfidVer == 0x91 || rfidVer == 0x92 || rfidVer == 0x12) {
-      Serial.printf("\n⭐ [SUCCESS] RC522 Found! Connected on: %s (Reg: 0x%02X)\n\n", c.label, rfidVer);
-      rfidFound = true;
-      rfid.PCD_SetAntennaGain(rfid.RxGain_max);
-      updateOled("RC522: OK", "Auto-Connected!");
+      Serial.println("[RFID Status] SUCCESS: RC522 ready after reset!");
+      updateOled("RC522: OK", "Reader Ready");
+      delay(1000);
+    } else {
+      Serial.println("[RFID Warning] Could not read 0x91/0x92 from version reg. Check physical wiring.");
+      updateOled("RC522: CHECK WIRE", "Check 3.3V & GND");
       delay(1500);
-      break;
     }
-  }
-
-  if (!rfidFound) {
-    Serial.println("\n=============================================================");
-    Serial.println("[CRITICAL HARDWARE FAULT] RC522 NOT RESPONDING ON ANY PIN CONFIG!");
-    Serial.println("Every tested SPI pin combination returned 0x00 or 0xFF.");
-    Serial.println("This means there is NO electrical signal reaching the RC522 chip.");
-    Serial.println("-------------------------------------------------------------");
-    Serial.println("PLEASE INSPECT THE HARDWARE:");
-    Serial.println(" 1. ARE THE PINS SOLDERED? (Unsoldered loose header pins DO NOT WORK!)");
-    Serial.println(" 2. POWER: RC522 VCC must be on 3.3V (Header Pin 1 or 3). NOT 5V!");
-    Serial.println(" 3. GROUND: RC522 GND must be on Header Pin 21 or 25.");
-    Serial.println(" 4. RESET: RC522 RST should be connected to Pin 6 (GPIO6) or 3.3V.");
-    Serial.println("=============================================================\n");
-    updateOled("RC522: WIRING ERR", "Check 3.3V & GND");
-    delay(3000);
   }
 
   // 7. Connect to WiFi
@@ -225,22 +192,23 @@ void loop() {
   float distanceCm = readUltrasonicCm();
 
   // Check for RFID card tap
-  if (rfid.PICC_IsNewCardPresent()) {
+  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     Serial.println("\n[RFID] >>> RF field detected card! Reading UID...");
-    if (rfid.PICC_ReadCardSerial()) {
-      handleRfidTap();
-      rfid.PICC_HaltA();
-      rfid.PCD_StopCrypto1();
-    } else {
-      Serial.println("[RFID Warning] Card detected in RF field but failed to read serial (hold card flat and steady)");
-    }
+    handleRfidTap();
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    delay(500);
   }
 
   // Check onboard user button from STM32 motion controller (Newrick library)
   if (nr.buttonState > 0) {
-    Serial.println("\n[Button] Onboard user button pressed! Triggering manual status & telemetry sync...");
+    Serial.println("\n[Button] Onboard user button pressed! Triggering manual "
+                   "status & telemetry sync...");
     byte ver = rfid.PCD_ReadRegister(rfid.VersionReg);
-    Serial.printf("[RFID Health Check] Version Reg: 0x%02X %s\n", ver, (ver == 0x92 || ver == 0x91 || ver == 0x12) ? "(OK)" : "(FAILED - CHECK WIRING)");
+    Serial.printf("[RFID Health Check] Version Reg: 0x%02X %s\n", ver,
+                  (ver == 0x92 || ver == 0x91 || ver == 0x12)
+                      ? "(OK)"
+                      : "(FAILED - CHECK WIRING)");
     updateOled("SYNCING STATUS", "Checking Blockchain...");
     pollDeliveryStatus();
     sendTelemetry(distanceCm);
@@ -250,6 +218,7 @@ void loop() {
   // Periodic Environmental Telemetry Reporting (every 4 seconds)
   if (millis() - lastTelemetryTime > 4000) {
     lastTelemetryTime = millis();
+    syncDeliveryId();
     sendTelemetry(distanceCm);
   }
 
@@ -272,14 +241,16 @@ float readUltrasonicCm() {
   digitalWrite(PIN_US_TRIG, LOW);
 
   long duration = pulseIn(PIN_US_ECHO, HIGH, 30000); // 30ms timeout
-  if (duration == 0) return 400.0;
+  if (duration == 0)
+    return 400.0;
   return (duration * 0.0343) / 2.0;
 }
 
 void handleRfidTap() {
   String uidStr = "";
   for (byte i = 0; i < rfid.uid.size; i++) {
-    if (rfid.uid.uidByte[i] < 0x10) uidStr += "0";
+    if (rfid.uid.uidByte[i] < 0x10)
+      uidStr += "0";
     uidStr += String(rfid.uid.uidByte[i], HEX);
   }
   uidStr.toUpperCase();
@@ -293,15 +264,15 @@ void handleRfidTap() {
     http.begin(String(RELAY_HOST) + "/api/terminal/scan");
     http.addHeader("Content-Type", "application/json");
 
-    String json = "{\"deliveryId\":" + String(DELIVERY_ID) +
-                  ",\"rfidUid\":\"" + uidStr + "\"" +
-                  ",\"latitude\":" + String(currentLat, 6) +
-                  ",\"longitude\":" + String(currentLon, 6) +
-                  ",\"source\":\"hardware\"}";
+    String json =
+        "{\"deliveryId\":" + String(currentDeliveryId) + ",\"rfidUid\":\"" +
+        uidStr + "\"" + ",\"latitude\":" + String(currentLat, 6) +
+        ",\"longitude\":" + String(currentLon, 6) + ",\"source\":\"hardware\"}";
 
     int httpCode = http.POST(json);
     if (httpCode == 200) {
-      Serial.println("[Relay] Scan accepted! Key 1 confirmed on MST Blockchain.");
+      Serial.println(
+          "[Relay] Scan accepted! Key 1 confirmed on MST Blockchain.");
       isKey1Confirmed = true;
       updateOled("KEY 1 VERIFIED", "Awaiting Recipient");
     } else {
@@ -320,8 +291,10 @@ void sendTelemetry(float distanceCm) {
   float hum = dht.readHumidity();
   int rawGas = analogRead(PIN_MQ135_ANALOG);
 
-  if (isnan(temp)) temp = 22.0;
-  if (isnan(hum)) hum = 48.0;
+  if (isnan(temp))
+    temp = 22.0;
+  if (isnan(hum))
+    hum = 48.0;
 
   float batteryVolts = 12.0;
   if (nr.updateSensors()) {
@@ -330,7 +303,8 @@ void sendTelemetry(float distanceCm) {
 
   byte currentRfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
 
-  Serial.printf("[Telemetry] T: %.1fC | H: %.1f%% | Gas: %d | Dist: %.1f cm | Batt: %.2fV | RFID: 0x%02X\n",
+  Serial.printf("[Telemetry] T: %.1fC | H: %.1f%% | Gas: %d | Dist: %.1f cm | "
+                "Batt: %.2fV | RFID: 0x%02X\n",
                 temp, hum, rawGas, distanceCm, batteryVolts, currentRfidVer);
 
   if (WiFi.status() == WL_CONNECTED) {
@@ -338,7 +312,7 @@ void sendTelemetry(float distanceCm) {
     http.begin(String(RELAY_HOST) + "/api/terminal/telemetry");
     http.addHeader("Content-Type", "application/json");
 
-    String json = "{\"deliveryId\":" + String(DELIVERY_ID) +
+    String json = "{\"deliveryId\":" + String(currentDeliveryId) +
                   ",\"temperature\":" + String(temp, 1) +
                   ",\"humidity\":" + String(hum, 1) +
                   ",\"airQualityPpm\":" + String(rawGas) +
@@ -354,20 +328,24 @@ void sendTelemetry(float distanceCm) {
 }
 
 void pollDeliveryStatus() {
-  if (WiFi.status() != WL_CONNECTED) return;
+  if (WiFi.status() != WL_CONNECTED)
+    return;
 
   HTTPClient http;
-  http.begin(String(RELAY_HOST) + "/api/terminal/status/" + String(DELIVERY_ID));
+  http.begin(String(RELAY_HOST) + "/api/terminal/status/" +
+             String(currentDeliveryId));
   int httpCode = http.GET();
 
   if (httpCode == 200) {
     String payload = http.getString();
     // Check if unlocked / settled
-    if (payload.indexOf("\"unlockDoor\":true") >= 0 || payload.indexOf("\"status\":3") >= 0) {
+    if (payload.indexOf("\"unlockDoor\":true") >= 0 ||
+        payload.indexOf("\"status\":3") >= 0) {
       if (!isDoorUnlocked) {
         isDoorUnlocked = true;
         isSettled = true;
-        Serial.println("\n🎉 [SETTLEMENT] Multi-Sig Complete! Opening Locker Compartment.");
+        Serial.println("\n🎉 [SETTLEMENT] Multi-Sig Complete! Opening Locker "
+                       "Compartment.");
         nr.servo(90, 0, 0); // Rotate Servo 1 to 90 degrees (Latch Open)
         updateOled("DELIVERY SETTLED", "Compartment Open!");
       }
@@ -376,7 +354,7 @@ void pollDeliveryStatus() {
   http.end();
 }
 
-void updateOled(const char* line1, const char* line2) {
+void updateOled(const char *line1, const char *line2) {
   display.clearDisplay();
   display.setCursor(0, 0);
   display.setTextSize(1);
@@ -384,6 +362,46 @@ void updateOled(const char* line1, const char* line2) {
   display.setCursor(0, 16);
   display.println(line2);
   display.display();
+}
+
+void syncDeliveryId() {
+  if (WiFi.status() != WL_CONNECTED)
+    return;
+
+  HTTPClient http;
+  http.begin(String(RELAY_HOST) + "/api/terminal/hardware-scan-state");
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String payload = http.getString();
+    // Parse "deliveryId":N from JSON
+    int idx = payload.indexOf("\"deliveryId\"");
+    if (idx >= 0) {
+      int colonIdx = payload.indexOf(':', idx);
+      if (colonIdx >= 0) {
+        int commaIdx = payload.indexOf(',', colonIdx);
+        int braceIdx = payload.indexOf('}', colonIdx);
+        int endIdx = (commaIdx >= 0 && (braceIdx < 0 || commaIdx < braceIdx))
+                         ? commaIdx
+                         : braceIdx;
+        if (endIdx > colonIdx) {
+          String valStr = payload.substring(colonIdx + 1, endIdx);
+          valStr.trim();
+          int newId = valStr.toInt();
+          if (newId > 0 && newId != currentDeliveryId) {
+            Serial.printf("[Sync] Delivery ID updated: %d -> %d\n",
+                          currentDeliveryId, newId);
+            currentDeliveryId = newId;
+            updateOled("DELIVERY SYNCED",
+                       ("ID: " + String(currentDeliveryId)).c_str());
+            delay(500);
+            updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+          }
+        }
+      }
+    }
+  }
+  http.end();
 }
 
 void connectWiFi() {
