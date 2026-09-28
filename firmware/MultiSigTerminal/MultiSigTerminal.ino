@@ -408,7 +408,7 @@ void connectWiFi() {
   Serial.println(WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   int tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries < 20) {
+  while (WiFi.status() != WL_CONNECTED && tries < 20) {/Users/pritthacker/MST/firmware/MultiSigTerminal/MultiSigTerminal.ino
     delay(500);
     Serial.print(".");
     tries++;
