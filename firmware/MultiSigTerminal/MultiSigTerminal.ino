@@ -55,10 +55,10 @@ const int   DELIVERY_ID   = 1;
 
 #define PIN_MQ135_ANALOG 4 // Safe ADC1 pin
 
-#define PIN_GPS_RX      17 // Connects to GPS Module TX/Users/pritthacker/MST/firmware/MultiSigTerminal.ino
-#define PIN_GPS_TX      18 // Connects to GPS Module RX/Users/pritthacker/MST/firmware/MultiSigTerminal.ino
+#define PIN_GPS_RX      17 // Connects to GPS Module TX
+#define PIN_GPS_TX      18 // Connects to GPS Module RX
 
-// --- Hardware Objects ---/Users/pritthacker/MST/firmware/MultiSigTerminal.ino
+// --- Hardware Objects ---
 TinyGPSPlus gps;
 Newrick nr;
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
