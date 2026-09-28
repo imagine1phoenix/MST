@@ -25,26 +25,48 @@ export async function connectWallet() {
     throw new Error("BridgeKey (or MetaMask) wallet not detected. Please install the BridgeKey extension.");
   }
 
-  const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-  if (!accounts || accounts.length === 0) {
-    throw new Error("No accounts found in wallet");
+  try {
+    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    if (!accounts || accounts.length === 0) {
+      throw new Error("No accounts found in wallet");
+    }
+
+    // Ensure user is on MST Testnet
+    await ensureMstNetwork();
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const address = await signer.getAddress();
+    
+    let balance = "0.0000";
+    try {
+      const balanceRaw = await provider.getBalance(address);
+      balance = Number(ethers.formatEther(balanceRaw)).toFixed(4);
+    } catch (balErr) {
+      try {
+        const directProvider = new ethers.JsonRpcProvider(MST_RPC_URL);
+        const balanceRaw = await directProvider.getBalance(address);
+        balance = Number(ethers.formatEther(balanceRaw)).toFixed(4);
+      } catch (_) {}
+    }
+
+    return {
+      provider,
+      signer,
+      address,
+      balance
+    };
+  } catch (err) {
+    if (
+      err.message?.includes("BridgeKey was updated") ||
+      err.message?.includes("could not coalesce error") ||
+      err.code === -32603 ||
+      err.info?.error?.code === -32603
+    ) {
+      throw new Error("BridgeKey extension was recently updated or reloaded. Please refresh this page (press Cmd+R or F5) and click Connect Wallet again.");
+    }
+    throw err;
   }
-
-  // Ensure user is on MST Testnet
-  await ensureMstNetwork();
-
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const signer = await provider.getSigner();
-  const address = await signer.getAddress();
-  const balanceRaw = await provider.getBalance(address);
-  const balance = ethers.formatEther(balanceRaw);
-
-  return {
-    provider,
-    signer,
-    address,
-    balance: Number(balance).toFixed(4)
-  };
 }
 
 export async function ensureMstNetwork() {
