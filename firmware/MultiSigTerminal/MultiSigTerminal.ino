@@ -113,9 +113,50 @@ void setup() {
   gpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
   // 6. Initialize RC522 RFID on Custom SPI Pins
-  SPI.begin(PIN_RFID_SCK, PIN_RFID_MISO, PIN_RFID_MOSI, PIN_RFID_SS);
+  pinMode(PIN_RFID_SS, OUTPUT);
+  digitalWrite(PIN_RFID_SS, HIGH);
+  pinMode(PIN_RFID_RST, OUTPUT);
+  digitalWrite(PIN_RFID_RST, HIGH);
+  delay(20);
+
+  // Passing -1 for SS prevents ESP32 hardware SPI peripheral from locking GPIO10
+  SPI.begin(PIN_RFID_SCK, PIN_RFID_MISO, PIN_RFID_MOSI, -1);
+  delay(50);
+
   rfid.PCD_Init();
-  Serial.println("[Terminal] RC522 RFID Reader Ready.");
+  delay(50);
+
+  // Boost antenna gain to maximum (48dB) for best range & sensitivity
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+
+  // Read firmware version register to diagnose communication
+  byte rfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
+  Serial.printf("\n[RFID Diagnostic] MFRC522 Chip Version Register: 0x%02X\n", rfidVer);
+
+  if (rfidVer == 0x91 || rfidVer == 0x92) {
+    Serial.println("[RFID Status] SUCCESS: RC522 communicates properly over SPI (v" + String(rfidVer == 0x92 ? "2.0" : "1.0") + ")");
+    updateOled("RC522: OK", "Reader Ready");
+  } else if (rfidVer == 0x12) {
+    Serial.println("[RFID Status] SUCCESS: RC522 clone detected (0x12) - communication OK");
+    updateOled("RC522: OK", "Clone Ready");
+  } else if (rfidVer == 0x00 || rfidVer == 0xFF) {
+    Serial.println("=============================================================");
+    Serial.printf("[RFID CRITICAL ERROR] RC522 NOT RESPONDING (Version: 0x%02X)!\n", rfidVer);
+    Serial.println("-> The ESP32 cannot communicate with the RC522 chip.");
+    Serial.println("-> PLEASE CHECK YOUR WIRING:");
+    Serial.println("   RC522 3.3V  -> P1 Pin 1 or 3 (MUST BE 3.3V, NOT 5V!)");
+    Serial.println("   RC522 GND   -> P1 Pin 21 or 25");
+    Serial.println("   RC522 RST   -> P1 Pin 6 (GPIO6) [or 3.3V]");
+    Serial.println("   RC522 SDA   -> P1 Pin 26 (GPIO10)");
+    Serial.println("   RC522 MOSI  -> P1 Pin 28 (GPIO11)");
+    Serial.println("   RC522 SCK   -> P1 Pin 30 (GPIO12)");
+    Serial.println("   RC522 MISO  -> P1 Pin 32 (GPIO13)");
+    Serial.println("=============================================================");
+    updateOled("RC522: WIRING ERR", "Check 3.3V/Pins");
+    delay(3000);
+  } else {
+    Serial.printf("[RFID Status] RC522 custom chip 0x%02X initialized.\n", rfidVer);
+  }
 
   // 7. Connect to WiFi
   connectWiFi();
@@ -139,15 +180,22 @@ void loop() {
   float distanceCm = readUltrasonicCm();
 
   // Check for RFID card tap
-  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
-    handleRfidTap();
-    rfid.PICC_HaltA();
-    rfid.PCD_StopCrypto1();
+  if (rfid.PICC_IsNewCardPresent()) {
+    Serial.println("\n[RFID] >>> RF field detected card! Reading UID...");
+    if (rfid.PICC_ReadCardSerial()) {
+      handleRfidTap();
+      rfid.PICC_HaltA();
+      rfid.PCD_StopCrypto1();
+    } else {
+      Serial.println("[RFID Warning] Card detected in RF field but failed to read serial (hold card flat and steady)");
+    }
   }
 
   // Check onboard user button from STM32 motion controller (Newrick library)
   if (nr.buttonState > 0) {
     Serial.println("\n[Button] Onboard user button pressed! Triggering manual status & telemetry sync...");
+    byte ver = rfid.PCD_ReadRegister(rfid.VersionReg);
+    Serial.printf("[RFID Health Check] Version Reg: 0x%02X %s\n", ver, (ver == 0x92 || ver == 0x91 || ver == 0x12) ? "(OK)" : "(FAILED - CHECK WIRING)");
     updateOled("SYNCING STATUS", "Checking Blockchain...");
     pollDeliveryStatus();
     sendTelemetry(distanceCm);
