@@ -42,23 +42,23 @@ const char *WIFI_PASSWORD = "Bmsce$2026$!";
 const char *RELAY_HOST = "http://10.80.79.100:5001"; // Mac Relay IP
 int currentDeliveryId = 8; // Synced dynamically from relay server
 
-// --- Pin Definitions (P1 Expansion Header) ---
-#define PIN_RFID_SS 10
-#define PIN_RFID_RST 6
-#define PIN_RFID_MOSI 11
-#define PIN_RFID_SCK 12
-#define PIN_RFID_MISO 13
+// --- Pin Definitions (Neurick Shield CN2, CN9, CN10) ---
+#define PIN_RFID_SS 3     // SDA / Chip Select (CN2)
+#define PIN_RFID_RST 15   // Reset (CN2)
+#define PIN_RFID_MISO 16  // SPI Master In Slave Out (CN2)
+#define PIN_RFID_MOSI 17  // SPI Master Out Slave In (CN2)
+#define PIN_RFID_SCK 18   // SPI Clock (CN2)
 
-#define PIN_US_TRIG 15
-#define PIN_US_ECHO 16
+#define PIN_US_TRIG 10    // Ultrasonic Trigger (CN9)
+#define PIN_US_ECHO 11    // Ultrasonic Echo (CN9)
 
 #define PIN_DHT_DATA 5
 #define DHTTYPE DHT22
 
 #define PIN_MQ135_ANALOG 4 // Safe ADC1 pin
 
-#define PIN_GPS_RX 17 // Connects to GPS Module TX
-#define PIN_GPS_TX 18 // Connects to GPS Module RX
+#define PIN_GPS_RX 12 // Connects to GPS Module TX (CN10)
+#define PIN_GPS_TX 13 // Connects to GPS Module RX (CN10)
 
 // --- Hardware Objects ---
 TinyGPSPlus gps;
@@ -129,8 +129,7 @@ void setup() {
   digitalWrite(PIN_RFID_SS, HIGH);
   delay(10);
 
-  // Passing -1 for SS prevents ESP32 hardware SPI peripheral from locking GPIO10
-  SPI.begin(PIN_RFID_SCK, PIN_RFID_MISO, PIN_RFID_MOSI, -1);
+  SPI.begin(PIN_RFID_SCK, PIN_RFID_MISO, PIN_RFID_MOSI, PIN_RFID_SS);
   delay(50);
 
   rfid.PCD_Init();
