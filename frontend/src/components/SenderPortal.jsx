@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { PackagePlus, MapPin, Hash, Sparkles, AlertCircle, CheckCircle2, ExternalLink, Radio } from 'lucide-react';
-import { hashRfidUid, getContractInstance, RELAY_API_URL } from '../utils/web3';
+import { hashRfidUid, getContractInstance, ensureMstNetwork, RELAY_API_URL } from '../utils/web3';
 
 const PRESETS = [
   { name: 'Delhi Tech Park', lat: 28.6129, lon: 77.2295 },
@@ -11,7 +11,7 @@ const PRESETS = [
 
 export { PRESETS };
 
-export default function SenderPortal({ signer, account, onDeliveryCreated }) {
+export default function SenderPortal({ signer, account, balance, onConnect, onDeliveryCreated }) {
   const [courier, setCourier] = useState('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
   const [recipient, setRecipient] = useState('0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
   const [amount, setAmount] = useState('0.1');
@@ -65,14 +65,42 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!signer) {
-      alert("Please connect your BridgeKey wallet first!");
+    if (!signer || !account) {
+      if (onConnect) {
+        onConnect();
+      } else {
+        alert("Please connect your BridgeKey or MetaMask wallet first!");
+      }
+      return;
+    }
+
+    // Input validations with clear feedback
+    if (!courier || !ethers.isAddress(courier)) {
+      setStatusMessage({ type: 'error', text: 'Invalid Courier Address. Must be a valid 0x wallet address.' });
+      return;
+    }
+    if (!recipient || !ethers.isAddress(recipient)) {
+      setStatusMessage({ type: 'error', text: 'Invalid Recipient Address. Must be a valid 0x wallet address.' });
+      return;
+    }
+    const parsedLat = parseFloat(lat);
+    const parsedLon = parseFloat(lon);
+    if (isNaN(parsedLat) || isNaN(parsedLon)) {
+      setStatusMessage({ type: 'error', text: 'Invalid GPS coordinates. Please click a location preset or "My Location".' });
+      return;
+    }
+    const parsedAmountVal = parseFloat(amount);
+    if (isNaN(parsedAmountVal) || parsedAmountVal <= 0) {
+      setStatusMessage({ type: 'error', text: 'Escrow amount must be greater than 0.' });
       return;
     }
 
     try {
       setIsLoading(true);
       setStatusMessage({ type: 'info', text: 'Preparing transaction...' });
+
+      // Ensure network is MST Testnet
+      await ensureMstNetwork();
 
       const contract = getContractInstance(signer);
       if (!contract) {
@@ -87,9 +115,9 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
           courierPayout,
           rfidUid,
           rfidHash,
-          targetLat: parseFloat(lat),
-          targetLon: parseFloat(lon),
-          allowedRadiusMeters: parseInt(radius),
+          targetLat: parsedLat,
+          targetLon: parsedLon,
+          allowedRadiusMeters: parseInt(radius) || 100,
           txHash: '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join(''),
           simulation: true
         };
@@ -97,19 +125,19 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
         if (onDeliveryCreated) onDeliveryCreated(newDelivery);
         setStatusMessage({
           type: 'success',
-          text: `Delivery #${simId} created in simulation mode! Deploy smart contract to MST Testnet for live on-chain transactions.`
+          text: `Delivery #${simId} created in simulation mode!`
         });
         return;
       }
 
-      const latMicro = Math.round(parseFloat(lat) * 1e6);
-      const lonMicro = Math.round(parseFloat(lon) * 1e6);
-      const radiusInt = parseInt(radius);
+      const latMicro = Math.round(parsedLat * 1e6);
+      const lonMicro = Math.round(parsedLon * 1e6);
+      const radiusInt = parseInt(radius) || 100;
       const escrowWei = ethers.parseEther(amount.toString());
 
-      setStatusMessage({ type: 'info', text: 'Confirm the transaction in your BridgeKey wallet...' });
+      setStatusMessage({ type: 'info', text: 'Confirm the transaction in your wallet (MetaMask / BridgeKey)...' });
 
-      // Call createDelivery on MST Testnet
+      // Call createDelivery on MST Testnet with explicit gasLimit to prevent estimation stalls
       const tx = await contract.createDelivery(
         courier,
         recipient,
@@ -118,10 +146,13 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
         latMicro,
         lonMicro,
         radiusInt,
-        { value: escrowWei }
+        { 
+          value: escrowWei,
+          gasLimit: 400000
+        }
       );
 
-      setStatusMessage({ type: 'info', text: `Broadcasting transaction: ${tx.hash}...` });
+      setStatusMessage({ type: 'info', text: `Transaction broadcasted: ${tx.hash}. Awaiting block confirmation...` });
       const receipt = await tx.wait();
 
       // Parse event to get delivery ID
@@ -145,8 +176,8 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
         courierPayout,
         rfidUid,
         rfidHash,
-        targetLat: parseFloat(lat),
-        targetLon: parseFloat(lon),
+        targetLat: parsedLat,
+        targetLon: parsedLon,
         allowedRadiusMeters: radiusInt,
         txHash: tx.hash,
         simulation: false
@@ -167,10 +198,16 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
         text: `Delivery #${deliveryId} locked in escrow on MST Testnet!`
       });
     } catch (err) {
-      console.error(err);
+      console.error("Booking Error:", err);
+      let errMsg = err.reason || err.message || 'Transaction rejected or failed';
+      if (err.code === 'ACTION_REJECTED' || err.message?.includes('user rejected') || err.message?.includes('User denied')) {
+        errMsg = 'Transaction was rejected in your wallet.';
+      } else if (err.message?.includes('insufficient funds')) {
+        errMsg = 'Insufficient MSTC balance for this escrow amount + gas fee.';
+      }
       setStatusMessage({
         type: 'error',
-        text: err.reason || err.message || 'Transaction rejected or failed'
+        text: errMsg
       });
     } finally {
       setIsLoading(false);
@@ -202,9 +239,26 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Recipient Wallet Address (BridgeKey)
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                Recipient Wallet Address (BridgeKey)
+              </label>
+              {account && (
+                <button
+                  type="button"
+                  onClick={() => setRecipient(account)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--accent-cyan)',
+                    cursor: 'pointer',
+                    fontSize: '0.74rem'
+                  }}
+                >
+                  Use My Address (For Testing)
+                </button>
+              )}
+            </div>
             <input
               type="text"
               className="input-field mono"
@@ -362,13 +416,38 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
             </div>
           </div>
 
+          {/* In-Form Real-time Status Alert */}
+          {statusMessage && (
+            <div style={{
+              padding: '12px 14px',
+              borderRadius: '8px',
+              fontSize: '0.84rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              background: statusMessage.type === 'error' ? 'rgba(239, 68, 68, 0.12)' : statusMessage.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(0, 242, 254, 0.12)',
+              border: `1px solid ${statusMessage.type === 'error' ? 'rgba(239, 68, 68, 0.4)' : statusMessage.type === 'success' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(0, 242, 254, 0.4)'}`,
+              color: statusMessage.type === 'error' ? '#ef4444' : statusMessage.type === 'success' ? '#10b981' : 'var(--accent-cyan)'
+            }}>
+              {statusMessage.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+              <div style={{ flex: 1, wordBreak: 'break-word', lineHeight: 1.4 }}>
+                <strong>{statusMessage.type === 'error' ? 'Notice: ' : statusMessage.type === 'success' ? 'Success: ' : 'Status: '}</strong>
+                {statusMessage.text}
+              </div>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={isLoading || !account}
+            disabled={isLoading}
             className="btn-primary"
             style={{ marginTop: '10px' }}
           >
-            {isLoading ? 'Processing Escrow...' : 'Deposit Escrow & Lock on Chain'}
+            {isLoading
+              ? 'Processing Escrow...'
+              : !account
+              ? '⚡ Connect Wallet to Book Delivery'
+              : 'Deposit Escrow & Lock on Chain'}
           </button>
         </form>
       </div>

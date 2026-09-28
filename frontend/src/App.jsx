@@ -131,6 +131,8 @@ export default function App() {
           <SenderPortal
             signer={signer}
             account={account}
+            balance={balance}
+            onConnect={handleConnect}
             onDeliveryCreated={handleDeliveryCreated}
           />
         )}
