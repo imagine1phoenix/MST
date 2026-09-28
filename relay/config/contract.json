@@ -1,0 +1,657 @@
+{
+  "network": "mstTestnet",
+  "chainId": 91562037,
+  "rpcUrl": "https://testnetrpc.mstblockchain.com",
+  "explorerUrl": "https://testnet.mstscan.com",
+  "contractAddress": "",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "deliveryId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "refundAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "DeliveryCancelled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "deliveryId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "courier",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "escrowAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "rfidHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "int32",
+          "name": "targetLat",
+          "type": "int32"
+        },
+        {
+          "indexed": false,
+          "internalType": "int32",
+          "name": "targetLon",
+          "type": "int32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "allowedRadiusMeters",
+          "type": "uint32"
+        }
+      ],
+      "name": "DeliveryCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "deliveryId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "courier",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "courierPayout",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "cashbackAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "DeliverySettled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "deliveryId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "RecipientConfirmed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "deliveryId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "terminal",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "int32",
+          "name": "verifiedLat",
+          "type": "int32"
+        },
+        {
+          "indexed": false,
+          "internalType": "int32",
+          "name": "verifiedLon",
+          "type": "int32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "calculatedDistanceMeters",
+          "type": "uint256"
+        }
+      ],
+      "name": "TerminalConfirmed",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int32",
+          "name": "_lat1",
+          "type": "int32"
+        },
+        {
+          "internalType": "int32",
+          "name": "_lon1",
+          "type": "int32"
+        },
+        {
+          "internalType": "int32",
+          "name": "_lat2",
+          "type": "int32"
+        },
+        {
+          "internalType": "int32",
+          "name": "_lon2",
+          "type": "int32"
+        }
+      ],
+      "name": "calculateDistance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deliveryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "cancelAndRefund",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deliveryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "checkAndSettle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address payable",
+          "name": "_courier",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_terminalAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "_rfidHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "int32",
+          "name": "_targetLat",
+          "type": "int32"
+        },
+        {
+          "internalType": "int32",
+          "name": "_targetLon",
+          "type": "int32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "_allowedRadiusMeters",
+          "type": "uint32"
+        }
+      ],
+      "name": "createDelivery",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "deliveries",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address payable",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address payable",
+          "name": "courier",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "terminalAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "escrowAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "cashbackAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "courierPayout",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "rfidHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "int32",
+          "name": "targetLat",
+          "type": "int32"
+        },
+        {
+          "internalType": "int32",
+          "name": "targetLon",
+          "type": "int32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "allowedRadiusMeters",
+          "type": "uint32"
+        },
+        {
+          "internalType": "bool",
+          "name": "terminalConfirmed",
+          "type": "bool"
+        },
+        {
+          "internalType": "bool",
+          "name": "recipientConfirmed",
+          "type": "bool"
+        },
+        {
+          "internalType": "enum MultiSigDelivery.DeliveryStatus",
+          "name": "status",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "createdAt",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "settledAt",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int32",
+          "name": "verifiedLat",
+          "type": "int32"
+        },
+        {
+          "internalType": "int32",
+          "name": "verifiedLon",
+          "type": "int32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "deliveryCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "deg",
+          "type": "uint256"
+        }
+      ],
+      "name": "getCosineScaled",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deliveryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getDelivery",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address payable",
+              "name": "sender",
+              "type": "address"
+            },
+            {
+              "internalType": "address payable",
+              "name": "courier",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "terminalAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "escrowAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "cashbackAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "courierPayout",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "rfidHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "int32",
+              "name": "targetLat",
+              "type": "int32"
+            },
+            {
+              "internalType": "int32",
+              "name": "targetLon",
+              "type": "int32"
+            },
+            {
+              "internalType": "uint32",
+              "name": "allowedRadiusMeters",
+              "type": "uint32"
+            },
+            {
+              "internalType": "bool",
+              "name": "terminalConfirmed",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "recipientConfirmed",
+              "type": "bool"
+            },
+            {
+              "internalType": "enum MultiSigDelivery.DeliveryStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "createdAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "settledAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int32",
+              "name": "verifiedLat",
+              "type": "int32"
+            },
+            {
+              "internalType": "int32",
+              "name": "verifiedLon",
+              "type": "int32"
+            }
+          ],
+          "internalType": "struct MultiSigDelivery.Delivery",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deliveryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "isRecipientConfirmed",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deliveryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "isTerminalConfirmed",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deliveryId",
+          "type": "uint256"
+        }
+      ],
+      "name": "recipientConfirm",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "sqrt",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "y",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_deliveryId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_rfidUid",
+          "type": "string"
+        },
+        {
+          "internalType": "int32",
+          "name": "_currentLat",
+          "type": "int32"
+        },
+        {
+          "internalType": "int32",
+          "name": "_currentLon",
+          "type": "int32"
+        }
+      ],
+      "name": "terminalConfirm",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+}

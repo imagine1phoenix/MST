@@ -1,0 +1,108 @@
+Product Requirements Document (PRD)
+Project Title: Blockchain-Verified Smart Delivery Terminal with GPS Geofencing & Multi-Sig Escrow
+Target Track: MST × Robotics Track (MST Blockchain Buildathon)
+Document Version: 3.0.0 (Multi-Sig & GPS Integration)
+Status: Ready for Implementation
+
+1. Executive Summary & Problem Statement
+1.1 Problem Statement
+Traditional last-mile logistics systems suffer from delivery disputes, package theft, and lack of physical verification. Furthermore, simple RFID-based verification is vulnerable to "card cloning" (where a rogue courier clones a UID to steal escrow). There is a critical need to bridge real-world location data (the Oracle Problem) with digital cryptographic signatures to ensure zero-trust, automated package handoffs.
+1.2 Proposed Solution
+The Blockchain-Verified Smart Delivery Terminal utilizes the Newrro Neurick board to act as an IoT verification hub, secured by a Two-Factor Multi-Signature (Multi-Sig) smart contract on the MST Blockchain:
+Two-Factor Multi-Sig Escrow: Funds are only released when TWO signatures are provided: a physical hardware signature (IoT Terminal) and a digital human signature (BridgeKey Wallet).
+GPS Geofencing (Proof of Location): The terminal uses a NEO-6M GPS module to verify it is within a strict radius of the destination before authorizing the physical scan.
+Environmental Auditing (Cold-Chain): The terminal monitors package conditions (DHT22, MQ135) to verify quality compliance.
+Automated Payout & Cashback Incentive: Upon Multi-Sig completion, the contract pays the courier and distributes a 5% $MSTC cashback reward to the customer.
+1.3 Physical Operation (What it is & How it works)
+What it is: A stationary lockbox or a smart hand-off terminal carried by the courier.
+How it works: An HC-SR04 ultrasonic sensor detects when a package is placed inside or a person approaches. Environmental sensors (DHT22, MQ135) verify safe storage conditions. When the recipient taps their RFID badge, the terminal checks the GPS location (NEO-6M) and transmits the proof. The recipient then approves the final release via their BridgeKey Web3 app.
+2. Goals & Success Metrics
+2.1 Primary Objectives
+Implement an advanced Multi-Sig Machine-to-Machine (M2M) workflow combining smart contracts, GPS data, and IoT hardware.
+Satisfy all mandatory hackathon requirements: MST Testnet deployment, verifiable MSTScan transactions, GitHub repository, working physical prototype, and BridgeKey integration.
+3. Delivery Mechanism & User Journey
+3.1 The Delivery Mechanism (What, Who, How)
+What: A "zero-trust" Multi-Sig physical delivery terminal where payment (in $MSTC tokens) is locked and cannot be settled without BOTH physical location proof and digital wallet approval.
+Who:
+The Sender: Books the delivery, locking the payment, destination GPS coordinates, and the recipient's hashed RFID into the blockchain.
+The Courier / Terminal: Provides "Key 1" (Terminal Confirm) by validating the RFID tap at the correct GPS location.
+The Recipient: Provides "Key 2" (Recipient Confirm) by signing a transaction via their BridgeKey wallet.
+3.2 End-to-End User Journey Flow
+1. Escrow Booking: Customer enters courier address, deposits $MSTC, and registers the recipient's hashed RFID tag AND destination GPS coordinates into MultiSigDelivery.sol.
+2. Package Handoff & Environmental Check: The courier arrives. The ultrasonic sensor detects presence, while DHT22/MQ135 log the ambient conditions to ensure the item isn't compromised.
+3. Physical Proof (Key 1): The recipient taps their RFID card. The terminal verifies the GPS bounding box (via NEO-6M) and sends the data to the Node.js relay.
+4. Terminal Confirmation: The relay calls terminalConfirm(). The smart contract marks the physical hardware check as TRUE.
+5. Digital Proof (Key 2): The recipient opens the BridgeKey web app on their phone and clicks "Confirm Receipt", calling recipientConfirm().
+6. Smart Contract Settlement: With both signatures verified, the contract automatically pays out the courier and transfers the 5% cashback reward to the customer.
+7. State Finalization: The terminal OLED updates to "Delivery Settled", and logs the transaction link on MSTScan.
+4. B2B Logistics Integration (DTDC, Porter, etc.)
+This system acts as an Automated Cash-on-Delivery (COD) replacement and Smart Handoff Hub for Web2 logistics companies.
+API/Webhook Bridge: When DTDC's backend marks an Airway Bill (AWB) as "Out for Delivery", a webhook triggers the createDelivery() contract.
+Automated B2B Settlement: The corporate wallet address of DTDC is set as the courier. Upon Multi-Sig completion, the contract settles the payment instantly to the corporate wallet, eliminating COD theft risks.
+5. Functional Requirements
+5.1 Smart Contract Module (MultiSigDelivery.sol)
+FR-01 (Order Initialization): createDelivery() accepts native $MSTC escrow, secret RFID hash, and target GPS coordinates.
+FR-02 (Hardware Authorization): terminalConfirm() accepts current GPS and raw RFID. Must verify GPS is within allowed radius (Geofencing) and RFID matches hash.
+FR-03 (Digital Authorization): recipientConfirm() must be signed by the customer's BridgeKey wallet.
+FR-04 (Multi-Sig Settlement): checkAndSettle() only releases funds and cashback when BOTH terminalConfirm and recipientConfirm are true.
+5.2 Embedded Firmware Module (Neurick ESP32-S3)
+FR-05 (Presence Detection): HC-SR04 pulses periodically; if object < 30 cm, triggers "Awaiting Scan".
+FR-06 (Environmental Logging): Reads DHT22 and MQ135 to verify package integrity.
+FR-07 (GPS Parsing): SoftwareSerial reads NMEA sentences from NEO-6M to extract latitude/longitude via TinyGPS++.
+FR-08 (RFID Authentication): RC522 reader polls over SPI; scanning card transmits UID and GPS to backend.
+FR-09 (OLED Feedback): Status updates to the OLED (Awaiting Scan, GPS Lock Acquired, Terminal Confirmed, Settled, etc.).
+6. Hardware Pinout & Electrical Specifications
+Component
+Signal / Pin
+ESP32 GPIO
+Electrical Notes
+RC522 RFID
+SDA (SS) - Pin 26
+GPIO 10
+3.3V Logic
+RC522 RFID
+SCK - Pin 30
+GPIO 12
+3.3V Logic
+RC522 RFID
+MOSI - Pin 28
+GPIO 11
+3.3V Logic
+RC522 RFID
+MISO - Pin 32
+GPIO 13
+3.3V Logic
+HC-SR04
+Trig - Pin 10
+GPIO 15
+3.3V Out pulse
+HC-SR04
+Echo - Pin 12
+GPIO 16
+MUST Level-Shift (5V to 3.3V)
+DHT22
+Data - Pin 4
+GPIO 5
+Digital input on ADC1 safe pin
+MQ135
+Analog - Pin 2
+GPIO 4
+Analog read on ADC1 safe pin
+NEO-6M GPS
+TX - Pin 14
+GPIO 17
+Connects to ESP32 RX (UART)
+NEO-6M GPS
+RX - Pin 16
+GPIO 18
+Connects to ESP32 TX (UART)
+OLED Display
+Internal I2C
+GPIO 8 / 9
+Address 0x3C
+7. Hackathon Submission Checklist
+[ ] Smart Contract: Deployed to MST Testnet with contract address recorded.
+[ ] On-Chain Transactions: Documented createDelivery, terminalConfirm, and recipientConfirm hashes verified on MSTScan.
+[ ] Public GitHub Repo: Repository structured with /contracts, /firmware, /relay, and /frontend.
+[ ] BridgeKey Integration: Working front-end wallet connection and transaction approval (Multi-Sig requirement).
+[ ] Demo Video & Social Reel: 30+ second video showing the terminal scanning, GPS validation, card tap, BridgeKey signing, and MSTScan receipt.
