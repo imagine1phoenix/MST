@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { PackagePlus, MapPin, Hash, Sparkles, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react';
-import { hashRfidUid, getContractInstance } from '../utils/web3';
+import { PackagePlus, MapPin, Hash, Sparkles, AlertCircle, CheckCircle2, ExternalLink, Radio } from 'lucide-react';
+import { hashRfidUid, getContractInstance, RELAY_API_URL } from '../utils/web3';
 
 const PRESETS = [
   { name: 'Delhi Tech Park', lat: 28.6129, lon: 77.2295 },
@@ -23,6 +23,25 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [createdDelivery, setCreatedDelivery] = useState(null);
+  const [hardwareScannedCard, setHardwareScannedCard] = useState(null);
+
+  // Poll for physical cards tapped on the ESP32 RC522 terminal
+  useEffect(() => {
+    const checkLastCard = async () => {
+      try {
+        const res = await fetch(`${RELAY_API_URL}/api/terminal/last-card`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.uid) {
+            setHardwareScannedCard(data.uid);
+          }
+        }
+      } catch (_) {}
+    };
+    checkLastCard();
+    const interval = setInterval(checkLastCard, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Real-time calculations
   const parsedAmount = parseFloat(amount) || 0;
@@ -135,6 +154,13 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
 
       setCreatedDelivery(newDelivery);
       if (onDeliveryCreated) onDeliveryCreated(newDelivery);
+
+      // Inform relay server of active delivery ID for hardware scans
+      fetch(`${RELAY_API_URL}/api/terminal/active-delivery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliveryId })
+      }).catch(() => {});
 
       setStatusMessage({
         type: 'success',
@@ -296,6 +322,43 @@ export default function SenderPortal({ signer, account, onDeliveryCreated }) {
                 onChange={(e) => setRfidUid(e.target.value)}
                 required
               />
+              {hardwareScannedCard && (
+                <div style={{
+                  marginTop: '8px',
+                  padding: '8px 10px',
+                  background: 'rgba(0, 242, 254, 0.08)',
+                  border: '1px solid rgba(0, 242, 254, 0.3)',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                    <Radio size={13} color="var(--accent-cyan)" />
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                      Tapped Card: <strong className="mono" style={{ color: 'var(--accent-cyan)' }}>{hardwareScannedCard}</strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRfidUid(hardwareScannedCard)}
+                    style={{
+                      background: 'var(--accent-cyan)',
+                      color: '#05080f',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '3px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Use Card
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

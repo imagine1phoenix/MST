@@ -25,6 +25,13 @@ let latestTelemetry = {
   coldChainSafe: true
 };
 
+let latestScannedCard = {
+  uid: null,
+  timestamp: null
+};
+
+let activeDeliveryId = 1;
+
 const telemetryHistory = [];
 const scanAuditLog = [];
 
@@ -81,30 +88,58 @@ app.post("/api/terminal/telemetry", (req, res) => {
 app.get("/api/terminal/telemetry/latest", (req, res) => {
   res.json({
     latest: latestTelemetry,
-    history: telemetryHistory.slice(0, 15)
+    history: telemetryHistory.slice(0, 15),
+    lastScannedCard: latestScannedCard,
+    activeDeliveryId
   });
+});
+
+// Endpoint to fetch the last scanned physical RFID card UID
+app.get("/api/terminal/last-card", (req, res) => {
+  res.json(latestScannedCard);
+});
+
+// Update the active delivery being monitored / confirmed
+app.post("/api/terminal/active-delivery", (req, res) => {
+  if (req.body.deliveryId) {
+    activeDeliveryId = Number(req.body.deliveryId);
+    console.log(`[Relay] Active delivery updated to #${activeDeliveryId}`);
+  }
+  res.json({ activeDeliveryId });
 });
 
 // Physical Key 1 Scan Endpoint (Triggered by ESP32 RFID card tap or Simulator)
 app.post("/api/terminal/scan", async (req, res) => {
   try {
-    const { deliveryId, rfidUid, latitude, longitude } = req.body;
+    let { deliveryId, rfidUid, latitude, longitude } = req.body;
 
-    if (!deliveryId || !rfidUid) {
-      return res.status(400).json({ error: "deliveryId and rfidUid are required" });
+    if (!rfidUid) {
+      return res.status(400).json({ error: "rfidUid is required" });
     }
 
+    const cleanUid = rfidUid.trim().toUpperCase();
+
+    // Track the physical card UID immediately
+    latestScannedCard = {
+      uid: cleanUid,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log(`\n======================================================`);
+    console.log(`⭐ [REAL RFID CARD SCANNED] UID: ${cleanUid}`);
+    console.log(`   Time: ${new Date().toLocaleTimeString()} | GPS: ${latitude || latestTelemetry.lat}, ${longitude || latestTelemetry.lon}`);
+    console.log(`======================================================\n`);
+
+    const targetDeliveryId = deliveryId || activeDeliveryId;
     const lat = latitude !== undefined ? Number(latitude) : latestTelemetry.lat;
     const lon = longitude !== undefined ? Number(longitude) : latestTelemetry.lon;
-
-    console.log(`[Scan Event] Delivery #${deliveryId} | RFID UID: ${rfidUid} | GPS: ${lat}, ${lon}`);
 
     let txResult = null;
     let onChain = false;
 
     if (contractService.contract) {
       // Execute live on MST Blockchain Testnet
-      txResult = await contractService.terminalConfirm(deliveryId, rfidUid, lat, lon);
+      txResult = await contractService.terminalConfirm(targetDeliveryId, cleanUid, lat, lon);
       onChain = true;
     } else {
       // Simulation mode
@@ -118,8 +153,8 @@ app.post("/api/terminal/scan", async (req, res) => {
     }
 
     const scanRecord = {
-      deliveryId,
-      rfidUid,
+      deliveryId: targetDeliveryId,
+      rfidUid: cleanUid,
       lat,
       lon,
       onChain,
@@ -130,7 +165,8 @@ app.post("/api/terminal/scan", async (req, res) => {
 
     res.json({
       success: true,
-      deliveryId,
+      deliveryId: targetDeliveryId,
+      rfidUid: cleanUid,
       onChain,
       txResult,
       message: "Physical Terminal Scan (Key 1) verified and confirmed on-chain!"
