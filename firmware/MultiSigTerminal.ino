@@ -212,8 +212,13 @@ void sendTelemetry(float distanceCm) {
   if (isnan(temp)) temp = 22.0;
   if (isnan(hum)) hum = 48.0;
 
-  Serial.printf("[Telemetry] T: %.1fC | H: %.1f%% | Gas: %d | Dist: %.1f cm | GPS Fix: %s\n",
-                temp, hum, rawGas, distanceCm, hasGpsFix ? "YES" : "SIMULATED");
+  float batteryVolts = 12.0;
+  if (nr.updateSensors()) {
+    batteryVolts = nr.batteryVolts;
+  }
+
+  Serial.printf("[Telemetry] T: %.1fC | H: %.1f%% | Gas: %d | Dist: %.1f cm | Batt: %.2fV | GPS Fix: %s\n",
+                temp, hum, rawGas, distanceCm, batteryVolts, hasGpsFix ? "YES" : "SIMULATED");
 
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
@@ -225,6 +230,7 @@ void sendTelemetry(float distanceCm) {
                   ",\"humidity\":" + String(hum, 1) +
                   ",\"airQualityPpm\":" + String(rawGas) +
                   ",\"distanceCm\":" + String(distanceCm, 1) +
+                  ",\"batteryVolts\":" + String(batteryVolts, 2) +
                   ",\"lat\":" + String(currentLat, 6) +
                   ",\"lon\":" + String(currentLon, 6) + "}";
 

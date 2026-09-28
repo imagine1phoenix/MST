@@ -17,6 +17,7 @@ let latestTelemetry = {
   humidity: 48.0,
   airQualityPpm: 112,
   distanceCm: 18.4,
+  batteryVolts: 11.8,
   lat: 28.6129,
   lon: 77.2295,
   timestamp: new Date().toISOString(),
@@ -43,7 +44,7 @@ app.get("/api/network-info", (req, res) => {
 
 // Receive telemetry from ESP32-S3 (DHT22, MQ135, HC-SR04, GPS)
 app.post("/api/terminal/telemetry", (req, res) => {
-  const { temperature, humidity, airQualityPpm, distanceCm, lat, lon, deliveryId } = req.body;
+  const { temperature, humidity, airQualityPpm, distanceCm, batteryVolts, lat, lon, deliveryId } = req.body;
 
   // Cold chain rules (e.g., Pharmaceuticals or perishable goods: safe < 25°C, air quality < 300 ppm)
   const tempSafe = (temperature === undefined) || (Number(temperature) <= 25.0);
@@ -52,12 +53,13 @@ app.post("/api/terminal/telemetry", (req, res) => {
 
   latestTelemetry = {
     deliveryId: deliveryId || latestTelemetry.deliveryId || 1,
-    temperature: Number(temperature || latestTelemetry.temperature),
-    humidity: Number(humidity || latestTelemetry.humidity),
-    airQualityPpm: Number(airQualityPpm || latestTelemetry.airQualityPpm),
-    distanceCm: Number(distanceCm || latestTelemetry.distanceCm),
-    lat: Number(lat || latestTelemetry.lat),
-    lon: Number(lon || latestTelemetry.lon),
+    temperature: Number(temperature !== undefined ? temperature : latestTelemetry.temperature),
+    humidity: Number(humidity !== undefined ? humidity : latestTelemetry.humidity),
+    airQualityPpm: Number(airQualityPpm !== undefined ? airQualityPpm : latestTelemetry.airQualityPpm),
+    distanceCm: Number(distanceCm !== undefined ? distanceCm : latestTelemetry.distanceCm),
+    batteryVolts: Number(batteryVolts !== undefined ? batteryVolts : latestTelemetry.batteryVolts),
+    lat: Number(lat !== undefined ? lat : latestTelemetry.lat),
+    lon: Number(lon !== undefined ? lon : latestTelemetry.lon),
     timestamp: new Date().toISOString(),
     coldChainSafe
   };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Radio, Thermometer, Droplets, Wind, Ruler, MapPin, Lock, Unlock, Zap, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Radio, Thermometer, Droplets, Wind, Ruler, MapPin, Lock, Unlock, Zap, CheckCircle2, AlertTriangle, ExternalLink, Battery } from 'lucide-react';
 import { PRESETS } from './SenderPortal';
 
 export default function TerminalMonitor({ activeDeliveryId }) {
@@ -172,6 +172,20 @@ export default function TerminalMonitor({ activeDeliveryId }) {
           </div>
           <div style={{ fontSize: '0.75rem', color: telemetry.distanceCm < 30 ? 'var(--accent-cyan)' : 'var(--text-muted)', marginTop: '8px' }}>
             {telemetry.distanceCm < 30 ? '● Package Detected inside' : 'Compartment Empty'}
+          </div>
+        </div>
+
+        {/* Battery Voltage (STM32 on Neurick Board) */}
+        <div className="glass-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.82rem' }}>Terminal Battery (STM32)</span>
+            <Battery size={18} color="var(--accent-cyan)" />
+          </div>
+          <div style={{ fontSize: '1.6rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            {telemetry.batteryVolts ? Number(telemetry.batteryVolts).toFixed(2) : '12.10'} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>V</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--accent-green)', marginTop: '8px' }}>
+            ● Pack Level Nominal
           </div>
         </div>
 
