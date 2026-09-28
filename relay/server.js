@@ -63,12 +63,14 @@ app.get("/api/network-info", (req, res) => {
 
 // Receive telemetry from ESP32-S3 (DHT22, MQ135, HC-SR04, GPS)
 app.post("/api/terminal/telemetry", (req, res) => {
-  const { temperature, humidity, airQualityPpm, distanceCm, batteryVolts, lat, lon, deliveryId } = req.body;
+  const { temperature, humidity, airQualityPpm, distanceCm, batteryVolts, lat, lon, deliveryId, rfidVer } = req.body;
 
   // Cold chain rules (e.g., Pharmaceuticals or perishable goods: safe < 25°C, air quality < 300 ppm)
   const tempSafe = (temperature === undefined) || (Number(temperature) <= 25.0);
   const airSafe = (airQualityPpm === undefined) || (Number(airQualityPpm) <= 300);
   const coldChainSafe = tempSafe && airSafe;
+
+  const rfidHex = rfidVer !== undefined ? '0x' + Number(rfidVer).toString(16).toUpperCase() : 'N/A';
 
   latestTelemetry = {
     deliveryId: deliveryId || latestTelemetry.deliveryId || 1,
@@ -79,6 +81,7 @@ app.post("/api/terminal/telemetry", (req, res) => {
     batteryVolts: Number(batteryVolts !== undefined ? batteryVolts : latestTelemetry.batteryVolts),
     lat: Number(lat !== undefined ? lat : latestTelemetry.lat),
     lon: Number(lon !== undefined ? lon : latestTelemetry.lon),
+    rfidVer: rfidHex,
     timestamp: new Date().toISOString(),
     coldChainSafe
   };
@@ -86,7 +89,7 @@ app.post("/api/terminal/telemetry", (req, res) => {
   telemetryHistory.unshift(latestTelemetry);
   if (telemetryHistory.length > 50) telemetryHistory.pop();
 
-  console.log(`[Telemetry Received] Temp: ${latestTelemetry.temperature}°C | Humidity: ${latestTelemetry.humidity}% | Gas: ${latestTelemetry.airQualityPpm} ppm | Ultrasonic: ${latestTelemetry.distanceCm} cm`);
+  console.log(`[Telemetry Received] Temp: ${latestTelemetry.temperature}°C | Gas: ${latestTelemetry.airQualityPpm} ppm | Ultrasonic: ${latestTelemetry.distanceCm} cm | RFID Chip: ${rfidHex}`);
 
   res.json({
     status: "success",

@@ -322,8 +322,10 @@ void sendTelemetry(float distanceCm) {
     batteryVolts = nr.batteryVolts;
   }
 
-  Serial.printf("[Telemetry] T: %.1fC | H: %.1f%% | Gas: %d | Dist: %.1f cm | Batt: %.2fV | GPS Fix: %s\n",
-                temp, hum, rawGas, distanceCm, batteryVolts, hasGpsFix ? "YES" : "SIMULATED");
+  byte currentRfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
+
+  Serial.printf("[Telemetry] T: %.1fC | H: %.1f%% | Gas: %d | Dist: %.1f cm | Batt: %.2fV | RFID: 0x%02X\n",
+                temp, hum, rawGas, distanceCm, batteryVolts, currentRfidVer);
 
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
@@ -336,6 +338,7 @@ void sendTelemetry(float distanceCm) {
                   ",\"airQualityPpm\":" + String(rawGas) +
                   ",\"distanceCm\":" + String(distanceCm, 1) +
                   ",\"batteryVolts\":" + String(batteryVolts, 2) +
+                  ",\"rfidVer\":" + String(currentRfidVer) +
                   ",\"lat\":" + String(currentLat, 6) +
                   ",\"lon\":" + String(currentLon, 6) + "}";
 
