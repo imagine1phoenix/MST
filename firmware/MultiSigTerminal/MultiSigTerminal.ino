@@ -56,9 +56,9 @@ const int   DELIVERY_ID   = 1;
 #define PIN_MQ135_ANALOG 4 // Safe ADC1 pin
 
 #define PIN_GPS_RX      17 // Connects to GPS Module TX/Users/pritthacker/MST/firmware/MultiSigTerminal.ino
-#define PIN_GPS_TX      18 // Connects to GPS Module RX
+#define PIN_GPS_TX      18 // Connects to GPS Module RX/Users/pritthacker/MST/firmware/MultiSigTerminal.ino
 
-// --- Hardware Objects ---
+// --- Hardware Objects ---/Users/pritthacker/MST/firmware/MultiSigTerminal.ino
 TinyGPSPlus gps;
 Newrick nr;
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
@@ -126,26 +126,32 @@ void setup() {
   };
 
   SpiPinConfig configs[] = {
-    // 1. Standard expected wiring
-    { 12, 11, 13, 10, 6, "Standard: SCK=12, MOSI=11, MISO=13, SS=10, RST=6" },
-    // 2. Swapped SCK and MOSI (Header Pins 30 and 28)
-    { 11, 12, 13, 10, 6, "Swapped SCK/MOSI: SCK=11, MOSI=12, MISO=13, SS=10" },
-    // 3. Swapped MOSI and MISO (Header Pins 28 and 32)
-    { 12, 13, 11, 10, 6, "Swapped MOSI/MISO: SCK=12, MOSI=13, MISO=11, SS=10" },
-    // 4. Sequential pin order matching RC522 PCB header (SDA=10, SCK=11, MOSI=12, MISO=13)
-    { 11, 13, 12, 10, 6, "Sequential: SCK=11, MOSI=13, MISO=12, SS=10" },
-    // 5. Alternate permutations
-    { 13, 11, 12, 10, 6, "Alternate: SCK=13, MOSI=11, MISO=12, SS=10" },
-    { 13, 12, 11, 10, 6, "Alternate: SCK=13, MOSI=12, MISO=11, SS=10" },
-    // 6. Same candidates with RST = 255 (if user wired RST directly to 3.3V rail)
-    { 12, 11, 13, 10, 255, "RST on 3.3V: SCK=12, MOSI=11, MISO=13, SS=10" },
-    { 11, 12, 13, 10, 255, "RST on 3.3V + Swapped SCK/MOSI" },
-    { 12, 13, 11, 10, 255, "RST on 3.3V + Swapped MOSI/MISO" },
-    // 7. Swapped SS and RST (Pin 26 vs Pin 6)
-    { 12, 11, 13, 6, 10, "Swapped SS/RST: SS=6, RST=10" },
-    { 11, 12, 13, 6, 10, "Swapped SS/RST + SCK/MOSI" },
-    // 8. Lower header pins (if counted from opposite end: GPIO 15, 16, 17, 18)
-    { 16, 17, 18, 15, 6, "Opposite End: SCK=16, MOSI=17, MISO=18, SS=15" }
+    // 0. Newrro Sensor Shield CN2 Connector (Yellow wire on SDA, Black on SCK):
+    { 3, 18, 17, 16, 15, "Newrro CN2 Shield: SDA=16(Yellow), SCK=3(Black), MOSI=18, MISO=17, RST=15" },
+    // 0b. Newrro Sensor Shield CN2 (Black wire on SDA, Yellow on SCK):
+    { 16, 18, 17, 3, 15, "Newrro CN2 Shield: SDA=3(Black), SCK=16(Yellow), MOSI=18, MISO=17, RST=15" },
+    // 0c. Newrro CN2 Shield with RST on 3.3V:
+    { 3, 18, 17, 16, 255, "Newrro CN2 Shield (RST tied high)" },
+    { 16, 18, 17, 3, 255, "Newrro CN2 Shield (RST tied high, swapped SDA/SCK)" },
+
+    // 1. Standard expected direct P1 header wiring:
+    { 12, 11, 13, 10, 6, "P1 Direct: SCK=12, MOSI=11, MISO=13, SS=10, RST=6" },
+    // 2. Swapped SCK and MOSI (Header Pins 30 and 28):
+    { 11, 12, 13, 10, 6, "P1 Swapped SCK/MOSI: SCK=11, MOSI=12, MISO=13, SS=10" },
+    // 3. Swapped MOSI and MISO (Header Pins 28 and 32):
+    { 12, 13, 11, 10, 6, "P1 Swapped MOSI/MISO: SCK=12, MOSI=13, MISO=11, SS=10" },
+    // 4. Sequential pin order matching RC522 PCB header:
+    { 11, 13, 12, 10, 6, "P1 Sequential: SCK=11, MOSI=13, MISO=12, SS=10" },
+    // 5. Alternate permutations:
+    { 13, 11, 12, 10, 6, "P1 Alternate: SCK=13, MOSI=11, MISO=12, SS=10" },
+    { 13, 12, 11, 10, 6, "P1 Alternate: SCK=13, MOSI=12, MISO=11, SS=10" },
+    // 6. Same candidates with RST = 255 (if user wired RST directly to 3.3V rail):
+    { 12, 11, 13, 10, 255, "P1 RST on 3.3V: SCK=12, MOSI=11, MISO=13, SS=10" },
+    { 11, 12, 13, 10, 255, "P1 RST on 3.3V + Swapped SCK/MOSI" },
+    { 12, 13, 11, 10, 255, "P1 RST on 3.3V + Swapped MOSI/MISO" },
+    // 7. Swapped SS and RST (Pin 26 vs Pin 6):
+    { 12, 11, 13, 6, 10, "P1 Swapped SS/RST: SS=6, RST=10" },
+    { 11, 12, 13, 6, 10, "P1 Swapped SS/RST + SCK/MOSI" }
   };
 
   bool rfidFound = false;
