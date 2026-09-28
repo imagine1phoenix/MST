@@ -35,9 +35,9 @@ void updateOled(const char* line1, const char* line2);
 void connectWiFi();
 
 // --- Configuration ---
-const char* WIFI_SSID     = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char* RELAY_HOST    = "http://192.168.1.100:5001"; // IP of Node.js Relay Server
+const char* WIFI_SSID     = "BMS_Buildathon";
+const char* WIFI_PASSWORD = "Bmsce$2026$!";
+const char* RELAY_HOST    = "http://10.80.79.100:5001"; // Mac Relay IP
 const int   DELIVERY_ID   = 1;
 
 // --- Pin Definitions (P1 Expansion Header) ---

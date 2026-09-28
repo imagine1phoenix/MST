@@ -1,6 +1,8 @@
 const { ethers } = require("ethers");
 const path = require("path");
 const fs = require("fs");
+const dotenv = require("dotenv");
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 class ContractService {
   constructor() {

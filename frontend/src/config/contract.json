@@ -1,9 +1,9 @@
 {
   "network": "mstTestnet",
   "chainId": 91562037,
-  "rpcUrl": "https://testnetrpc.mstblockchain.com",
-  "explorerUrl": "https://testnet.mstscan.com",
-  "contractAddress": "",
+  "contractAddress": "0x7b86F2a24306b246e823d698815DCE356A9CBadF",
+  "deployer": "0x35954a1FA9C854558dC40190FF70fb46DDa8baCe",
+  "deployedAt": "2026-09-28T18:08:28.909Z",
   "abi": [
     {
       "inputs": [],
