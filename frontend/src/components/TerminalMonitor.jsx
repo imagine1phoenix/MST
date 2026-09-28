@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Radio, Thermometer, Droplets, Wind, Ruler, MapPin, Lock, Unlock, Zap, CheckCircle2, AlertTriangle, ExternalLink, Battery } from 'lucide-react';
 import { PRESETS } from './SenderPortal';
+import { RELAY_API_URL } from '../utils/web3';
 
 export default function TerminalMonitor({ activeDeliveryId }) {
   const [telemetry, setTelemetry] = useState({
@@ -27,7 +28,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
   useEffect(() => {
     const fetchTelemetry = async () => {
       try {
-        const res = await fetch('http://localhost:5001/api/terminal/telemetry/latest');
+        const res = await fetch(`${RELAY_API_URL}/api/terminal/telemetry/latest`);
         if (res.ok) {
           const data = await res.json();
           if (data.latest) {
@@ -59,7 +60,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const res = await fetch(`http://localhost:5001/api/terminal/status/${scanDeliveryId}`);
+        const res = await fetch(`${RELAY_API_URL}/api/terminal/status/${scanDeliveryId}`);
         if (res.ok) {
           const data = await res.json();
           setIsDoorUnlocked(!!data.unlockDoor);
@@ -77,7 +78,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
       setIsScanning(true);
       setScanResult(null);
 
-      const res = await fetch('http://localhost:5001/api/terminal/scan', {
+      const res = await fetch(`${RELAY_API_URL}/api/terminal/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

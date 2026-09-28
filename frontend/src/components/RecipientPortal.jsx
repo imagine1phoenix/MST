@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, CheckCircle2, Clock, AlertTriangle, KeyRound, Radio, ExternalLink } from 'lucide-react';
-import { getContractInstance, formatAddress } from '../utils/web3';
+import { getContractInstance, formatAddress, RELAY_API_URL } from '../utils/web3';
 
 export default function RecipientPortal({ signer, account, activeDeliveryId, onActiveDeliveryChange }) {
   const [deliveryId, setDeliveryId] = useState(activeDeliveryId || '1');
@@ -24,7 +24,7 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
       const id = idToFetch || deliveryId;
 
       // 1. Try fetching from Relay API
-      const res = await fetch(`http://localhost:5001/api/terminal/status/${id}`);
+      const res = await fetch(`${RELAY_API_URL}/api/terminal/status/${id}`);
       if (res.ok) {
         const data = await res.json();
         setDelivery(data);

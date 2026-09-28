@@ -1,8 +1,12 @@
 import { ethers } from "ethers";
 import contractConfig from "../config/contract.json";
 
-export const MST_CHAIN_ID_DECIMAL = 91562037;
-export const MST_CHAIN_ID_HEX = "0x5752035";
+export const MST_CHAIN_ID_DECIMAL = Number(import.meta.env.VITE_MST_CHAIN_ID) || 91562037;
+export const MST_CHAIN_ID_HEX = "0x" + MST_CHAIN_ID_DECIMAL.toString(16);
+export const MST_RPC_URL = import.meta.env.VITE_MST_RPC_URL || "https://testnetrpc.mstblockchain.com";
+export const MST_EXPLORER_URL = import.meta.env.VITE_MST_EXPLORER_URL || "https://testnet.mstscan.com";
+export const MST_CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || contractConfig.contractAddress;
+export const RELAY_API_URL = (import.meta.env.VITE_RELAY_API_URL || "http://localhost:5001").replace(/\/$/, "");
 
 export const MST_NETWORK_PARAMS = {
   chainId: MST_CHAIN_ID_HEX,
@@ -12,8 +16,8 @@ export const MST_NETWORK_PARAMS = {
     symbol: "MSTC",
     decimals: 18
   },
-  rpcUrls: ["https://testnetrpc.mstblockchain.com"],
-  blockExplorerUrls: ["https://testnet.mstscan.com"]
+  rpcUrls: [MST_RPC_URL],
+  blockExplorerUrls: [MST_EXPLORER_URL]
 };
 
 export async function connectWallet() {
@@ -68,7 +72,7 @@ export async function ensureMstNetwork() {
 }
 
 export function getContractInstance(signerOrProvider) {
-  const address = contractConfig.contractAddress;
+  const address = MST_CONTRACT_ADDRESS;
   if (!address || !ethers.isAddress(address)) {
     return null;
   }
