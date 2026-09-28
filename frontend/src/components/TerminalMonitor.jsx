@@ -23,8 +23,19 @@ export default function TerminalMonitor({ activeDeliveryId }) {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [isDoorUnlocked, setIsDoorUnlocked] = useState(false);
+  const [hardwareScanState, setHardwareScanState] = useState(null);
+  const [showManualOverride, setShowManualOverride] = useState(false);
 
-  // Poll relay server for real-time telemetry
+  // Arm scanner when deliveryId changes
+  useEffect(() => {
+    fetch(`${RELAY_API_URL}/api/terminal/arm-scanner`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deliveryId: parseInt(scanDeliveryId) })
+    }).catch(() => {});
+  }, [scanDeliveryId]);
+
+  // Poll relay server for real-time telemetry and hardware scan events
   useEffect(() => {
     const fetchTelemetry = async () => {
       try {
@@ -36,6 +47,9 @@ export default function TerminalMonitor({ activeDeliveryId }) {
               ...data.latest,
               timestamp: new Date().toLocaleTimeString()
             }));
+          }
+          if (data.hardwareScanState) {
+            setHardwareScanState(data.hardwareScanState);
           }
         }
       } catch (_) {
@@ -52,7 +66,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 3000);
+    const interval = setInterval(fetchTelemetry, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -68,7 +82,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
       } catch (_) {}
     };
     checkStatus();
-    const statusInterval = setInterval(checkStatus, 4000);
+    const statusInterval = setInterval(checkStatus, 3000);
     return () => clearInterval(statusInterval);
   }, [scanDeliveryId]);
 
@@ -209,134 +223,220 @@ export default function TerminalMonitor({ activeDeliveryId }) {
         </div>
       </div>
 
-      {/* Hardware Terminal Scanner Trigger (Key 1 Simulation) */}
+      {/* Hardware Terminal Scanner Trigger (Key 1 Physical Enforcement) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
         <div className="glass-panel" style={{ padding: '28px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <Radio size={22} color="var(--accent-cyan)" />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Hardware Terminal Scan Trigger (Key 1)</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Radio size={22} color="var(--accent-cyan)" />
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>RC522 Hardware RFID Scanner (Key 1)</h3>
+            </div>
+            <span className={`badge ${hardwareScanState?.confirmedOnChain && hardwareScanState?.deliveryId === Number(scanDeliveryId) ? 'badge-green' : 'badge-amber'}`}>
+              {hardwareScanState?.confirmedOnChain && hardwareScanState?.deliveryId === Number(scanDeliveryId) ? '● Verified on MST Chain' : '● Awaiting Card Tap'}
+            </span>
           </div>
 
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-            Simulate or dispatch a physical RFID badge tap along with live NEO-6M GPS coordinates from the Newrro Neurick terminal to the Node.js relay.
-          </p>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+              Monitoring Delivery ID:
+            </label>
+            <input
+              type="number"
+              min="1"
+              className="input-field mono"
+              value={scanDeliveryId}
+              onChange={(e) => setScanDeliveryId(e.target.value)}
+              style={{ width: '120px' }}
+            />
+          </div>
 
-          <form onSubmit={handleSimulateScan} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                  Delivery ID
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  className="input-field mono"
-                  value={scanDeliveryId}
-                  onChange={(e) => setScanDeliveryId(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                  Tapped RFID Card UID
-                </label>
-                <input
-                  type="text"
-                  className="input-field mono"
-                  value={scanRfidUid}
-                  onChange={(e) => setScanRfidUid(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Terminal Current GPS Location (NEO-6M)
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <input
-                  type="text"
-                  className="input-field mono"
-                  placeholder="Latitude"
-                  value={scanLat}
-                  onChange={(e) => setScanLat(e.target.value)}
-                  required
-                />
-                <input
-                  type="text"
-                  className="input-field mono"
-                  placeholder="Longitude"
-                  value={scanLon}
-                  onChange={(e) => setScanLon(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Quick Match Preset Buttons */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {PRESETS.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  onClick={() => { setScanLat(p.lat.toString()); setScanLon(p.lon.toString()); }}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    color: 'var(--text-secondary)',
-                    fontSize: '0.72rem',
-                    padding: '4px 8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  📍 Align GPS with {p.name}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isScanning}
-              className="btn-primary"
-              style={{ marginTop: '8px' }}
-            >
-              {isScanning ? (
-                <span>Transmitting Scan & GPS to Blockchain...</span>
-              ) : (
-                <>
-                  <Zap size={16} />
-                  <span>Transmit Hardware Scan (Key 1)</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Result Banner */}
-          {scanResult && (
+          {/* Condition 1: Card already scanned and confirmed on-chain */}
+          {hardwareScanState?.confirmedOnChain && hardwareScanState?.deliveryId === Number(scanDeliveryId) ? (
             <div style={{
-              marginTop: '16px',
-              padding: '14px',
-              borderRadius: '10px',
-              background: 'rgba(0,0,0,0.3)',
-              border: `1px solid ${scanResult.type === 'error' ? 'var(--accent-red)' : 'var(--accent-green)'}`,
-              fontSize: '0.85rem'
+              padding: '20px',
+              borderRadius: '12px',
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
             }}>
-              <div>{scanResult.message}</div>
-              {scanResult.txHash && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <CheckCircle2 size={24} color="var(--accent-green)" />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--accent-green)' }}>
+                    Physical RFID Card Verified!
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    Source: {hardwareScanState.source === 'hardware' ? 'Physical RC522 Reader' : 'Manual Scan'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.82rem', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Card UID:</span>
+                  <div className="mono" style={{ fontWeight: 700, color: 'var(--accent-cyan)' }}>{hardwareScanState.scannedCardUid}</div>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>GPS Verified:</span>
+                  <div className="mono">{hardwareScanState.lat?.toFixed(4)}, {hardwareScanState.lon?.toFixed(4)}</div>
+                </div>
+              </div>
+
+              {hardwareScanState.txHash && (
                 <a
-                  href={scanResult.mstScanUrl || `https://testnet.mstscan.com/tx/${scanResult.txHash}`}
+                  href={`https://testnet.mstscan.com/tx/${hardwareScanState.txHash}`}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ color: 'var(--accent-cyan)', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '6px', fontSize: '0.8rem' }}
+                  style={{
+                    color: 'var(--accent-cyan)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600
+                  }}
                 >
-                  <span>View Key 1 Tx on MSTScan</span>
-                  <ExternalLink size={12} />
+                  <span>View Key 1 Confirmation on MSTScan</span>
+                  <ExternalLink size={14} />
                 </a>
               )}
             </div>
+          ) : (
+            /* Condition 2: Scanner is active, waiting for the real card to be tapped on the RC522 reader */
+            <div style={{
+              padding: '24px',
+              borderRadius: '12px',
+              background: 'rgba(0, 242, 254, 0.04)',
+              border: '1px dashed rgba(0, 242, 254, 0.3)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '14px'
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(0, 242, 254, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid rgba(0, 242, 254, 0.4)'
+              }}>
+                <Radio size={28} color="var(--accent-cyan)" />
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>
+                  Awaiting Physical Card on RC522 Scanner
+                </h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '380px', margin: '0 auto', lineHeight: '1.5' }}>
+                  Hold your physical RFID card against the RC522 antenna on the Neurick board. The hardware will automatically read the UID and broadcast <strong>Key 1</strong> to the MST Blockchain.
+                </p>
+              </div>
+
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                background: 'rgba(245, 158, 11, 0.1)',
+                borderRadius: '9999px',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                fontSize: '0.78rem',
+                color: 'var(--accent-amber)'
+              }}>
+                <AlertTriangle size={14} />
+                <span>Transmit cannot complete until card is scanned in the physical reader</span>
+              </div>
+
+              <button
+                type="button"
+                disabled={true}
+                className="btn-secondary"
+                style={{
+                  width: '100%',
+                  opacity: 0.6,
+                  cursor: 'not-allowed',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Lock size={16} />
+                <span>Waiting for Physical Card Scan...</span>
+              </button>
+            </div>
           )}
+
+          {/* Collapsible Manual Testing Override */}
+          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              onClick={() => setShowManualOverride(!showManualOverride)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: '0.76rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>{showManualOverride ? '▾ Hide Developer Override' : '▸ Hardware Offline? Show Developer Override'}</span>
+            </button>
+
+            {showManualOverride && (
+              <form onSubmit={handleSimulateScan} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Manual Override RFID Card UID:
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field mono"
+                    value={scanRfidUid}
+                    onChange={(e) => setScanRfidUid(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className="input-field mono"
+                    placeholder="Lat"
+                    value={scanLat}
+                    onChange={(e) => setScanLat(e.target.value)}
+                    required
+                  />
+                  <input
+                    type="text"
+                    className="input-field mono"
+                    placeholder="Lon"
+                    value={scanLon}
+                    onChange={(e) => setScanLon(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isScanning}
+                  className="btn-primary"
+                  style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+                >
+                  {isScanning ? 'Transmitting...' : 'Manual Fallback Transmit (Key 1)'}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
         {/* Neurick Architecture & Pinout Reference */}

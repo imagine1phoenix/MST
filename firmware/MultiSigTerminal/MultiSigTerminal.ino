@@ -203,7 +203,8 @@ void handleRfidTap() {
     String json = "{\"deliveryId\":" + String(DELIVERY_ID) +
                   ",\"rfidUid\":\"" + uidStr + "\"" +
                   ",\"latitude\":" + String(currentLat, 6) +
-                  ",\"longitude\":" + String(currentLon, 6) + "}";
+                  ",\"longitude\":" + String(currentLon, 6) +
+                  ",\"source\":\"hardware\"}";
 
     int httpCode = http.POST(json);
     if (httpCode == 200) {

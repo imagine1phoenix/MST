@@ -32,6 +32,17 @@ let latestScannedCard = {
 
 let activeDeliveryId = 1;
 
+let hardwareScanState = {
+  isArmed: true,
+  scannedCardUid: null,
+  scannedAt: null,
+  confirmedOnChain: false,
+  txHash: null,
+  deliveryId: null,
+  source: null,
+  error: null
+};
+
 const telemetryHistory = [];
 const scanAuditLog = [];
 
@@ -90,6 +101,7 @@ app.get("/api/terminal/telemetry/latest", (req, res) => {
     latest: latestTelemetry,
     history: telemetryHistory.slice(0, 15),
     lastScannedCard: latestScannedCard,
+    hardwareScanState,
     activeDeliveryId
   });
 });
@@ -99,10 +111,34 @@ app.get("/api/terminal/last-card", (req, res) => {
   res.json(latestScannedCard);
 });
 
+// Endpoint to fetch real-time hardware scan state
+app.get("/api/terminal/hardware-scan-state", (req, res) => {
+  res.json(hardwareScanState);
+});
+
+// Arm the hardware scanner for a delivery
+app.post("/api/terminal/arm-scanner", (req, res) => {
+  const { deliveryId } = req.body;
+  if (deliveryId) activeDeliveryId = Number(deliveryId);
+  hardwareScanState = {
+    isArmed: true,
+    scannedCardUid: null,
+    scannedAt: null,
+    confirmedOnChain: false,
+    txHash: null,
+    deliveryId: activeDeliveryId,
+    source: null,
+    error: null
+  };
+  console.log(`[Relay] 📡 Scanner armed for Delivery #${activeDeliveryId}. Waiting for physical RFID card tap on RC522...`);
+  res.json({ status: "armed", deliveryId: activeDeliveryId });
+});
+
 // Update the active delivery being monitored / confirmed
 app.post("/api/terminal/active-delivery", (req, res) => {
   if (req.body.deliveryId) {
     activeDeliveryId = Number(req.body.deliveryId);
+    hardwareScanState.deliveryId = activeDeliveryId;
     console.log(`[Relay] Active delivery updated to #${activeDeliveryId}`);
   }
   res.json({ activeDeliveryId });
@@ -111,13 +147,14 @@ app.post("/api/terminal/active-delivery", (req, res) => {
 // Physical Key 1 Scan Endpoint (Triggered by ESP32 RFID card tap or Simulator)
 app.post("/api/terminal/scan", async (req, res) => {
   try {
-    let { deliveryId, rfidUid, latitude, longitude } = req.body;
+    let { deliveryId, rfidUid, latitude, longitude, source } = req.body;
 
     if (!rfidUid) {
       return res.status(400).json({ error: "rfidUid is required" });
     }
 
     const cleanUid = rfidUid.trim().toUpperCase();
+    const isHardware = source === 'hardware' || req.headers['user-agent']?.includes('ESP32');
 
     // Track the physical card UID immediately
     latestScannedCard = {
@@ -126,13 +163,26 @@ app.post("/api/terminal/scan", async (req, res) => {
     };
 
     console.log(`\n======================================================`);
-    console.log(`⭐ [REAL RFID CARD SCANNED] UID: ${cleanUid}`);
+    console.log(`⭐ [RFID CARD TAP DETECTED] UID: ${cleanUid} | Source: ${isHardware ? 'PHYSICAL HARDWARE (RC522)' : 'MANUAL'}`);
     console.log(`   Time: ${new Date().toLocaleTimeString()} | GPS: ${latitude || latestTelemetry.lat}, ${longitude || latestTelemetry.lon}`);
     console.log(`======================================================\n`);
 
     const targetDeliveryId = deliveryId || activeDeliveryId;
     const lat = latitude !== undefined ? Number(latitude) : latestTelemetry.lat;
     const lon = longitude !== undefined ? Number(longitude) : latestTelemetry.lon;
+
+    hardwareScanState = {
+      isArmed: false,
+      scannedCardUid: cleanUid,
+      scannedAt: new Date().toISOString(),
+      deliveryId: targetDeliveryId,
+      source: isHardware ? 'hardware' : 'manual',
+      lat,
+      lon,
+      confirmedOnChain: false,
+      txHash: null,
+      error: null
+    };
 
     let txResult = null;
     let onChain = false;
@@ -141,6 +191,8 @@ app.post("/api/terminal/scan", async (req, res) => {
       // Execute live on MST Blockchain Testnet
       txResult = await contractService.terminalConfirm(targetDeliveryId, cleanUid, lat, lon);
       onChain = true;
+      hardwareScanState.confirmedOnChain = true;
+      hardwareScanState.txHash = txResult.txHash;
     } else {
       // Simulation mode
       txResult = {
@@ -150,6 +202,8 @@ app.post("/api/terminal/scan", async (req, res) => {
         message: "Simulated hardware terminal verification (Contract not deployed on testnet yet)",
         mstScanUrl: "https://testnet.mstscan.com"
       };
+      hardwareScanState.confirmedOnChain = true;
+      hardwareScanState.txHash = txResult.txHash;
     }
 
     const scanRecord = {
@@ -159,7 +213,8 @@ app.post("/api/terminal/scan", async (req, res) => {
       lon,
       onChain,
       txHash: txResult.txHash,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      source: isHardware ? 'hardware' : 'manual'
     };
     scanAuditLog.unshift(scanRecord);
 
@@ -169,12 +224,15 @@ app.post("/api/terminal/scan", async (req, res) => {
       rfidUid: cleanUid,
       onChain,
       txResult,
+      hardwareScanState,
       message: "Physical Terminal Scan (Key 1) verified and confirmed on-chain!"
     });
   } catch (error) {
     console.error("[Scan Error]:", error);
+    hardwareScanState.error = error.reason || error.message;
     res.status(500).json({
-      error: error.reason || error.message || "Failed to process terminal scan"
+      error: error.reason || error.message || "Failed to process terminal scan",
+      hardwareScanState
     });
   }
 });
