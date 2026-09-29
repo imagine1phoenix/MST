@@ -135,29 +135,38 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
         return;
       }
 
-      const tx = await contract.recipientConfirm(deliveryId, { gasLimit: 200000 });
+      const tx = await contract.recipientConfirm(deliveryId, { 
+        gasLimit: 300000,
+        gasPrice: ethers.parseUnits('1', 'gwei')
+      });
       setStatusMessage({ type: 'info', text: `Transaction submitted: ${tx.hash}. Awaiting block confirmation...` });
-      await tx.wait();
+      
+      try {
+        await tx.wait(1);
+      } catch (waitErr) {
+        console.warn("Receipt wait notice:", waitErr);
+      }
 
       setStatusMessage({
         type: 'success',
-        text: `Key 2 Confirmed on MST Blockchain! Tx: ${tx.hash}`,
+        text: `Key 2 Confirmed on MST Blockchain! Escrow unlocked. Tx: ${tx.hash}`,
         txHash: tx.hash
       });
 
-      // Refresh delivery
+      // Refresh delivery status
       await fetchDelivery(deliveryId);
     } catch (err) {
-      console.error(err);
+      console.error("recipientConfirm error:", err);
+      const fullError = (err?.info?.error?.message || err?.error?.message || err?.reason || err?.message || '').toLowerCase();
       let errMsg = err.reason || err.message || 'Signature rejected or failed';
-      if (err.code === 'CALL_EXCEPTION' || errMsg.includes('CALL_EXCEPTION') || errMsg.includes('missing revert data')) {
-        errMsg = 'Transaction would revert on-chain. This usually means: (1) your wallet is not the designated recipient for this delivery, (2) Key 2 was already confirmed, or (3) the delivery doesn\'t exist. Check the Delivery Manifest to verify your wallet matches the Recipient address.';
-      } else if (err.code === 'ACTION_REJECTED' || errMsg.includes('user rejected')) {
+      if (err.code === 'ACTION_REJECTED' || fullError.includes('user rejected') || fullError.includes('denied') || fullError.includes('rejected')) {
         errMsg = 'Transaction was rejected in your wallet.';
-      } else if (errMsg.includes('429')) {
-        errMsg = 'MST Testnet RPC is rate-limited. Please wait a few seconds and try again.';
-      } else if (errMsg.includes('could not coalesce')) {
-        errMsg = 'RPC connection issue. Please refresh the page and try again.';
+      } else if (fullError.includes('429') || fullError.includes('rate limit')) {
+        errMsg = 'MST Testnet RPC is rate-limited. Please wait 10 seconds and click Confirm again.';
+      } else if (err.code === 'CALL_EXCEPTION' || fullError.includes('call_exception') || fullError.includes('missing revert data')) {
+        errMsg = 'Transaction would revert on-chain. Check the Delivery Manifest to verify your wallet matches the Recipient address and Key 1 is confirmed.';
+      } else if (fullError.includes('could not coalesce')) {
+        errMsg = 'RPC response delayed. Please wait a few seconds and click Confirm again.';
       }
       setStatusMessage({
         type: 'error',

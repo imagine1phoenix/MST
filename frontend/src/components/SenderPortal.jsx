@@ -155,7 +155,8 @@ export default function SenderPortal({ signer, account, balance, onConnect, onDe
         radiusInt,
         { 
           value: escrowWei,
-          gasLimit: 400000
+          gasLimit: 400000,
+          gasPrice: ethers.parseUnits('1', 'gwei')
         }
       );
 
