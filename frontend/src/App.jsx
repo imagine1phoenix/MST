@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './components/Navbar';
 import SenderPortal from './components/SenderPortal';
 import RecipientPortal from './components/RecipientPortal';
@@ -16,51 +16,71 @@ export default function App() {
   const [connectError, setConnectError] = useState(null);
   const [activeDeliveryId, setActiveDeliveryId] = useState('1');
 
-  // Try auto-connecting if wallet provider already has authorized accounts
+  const accountRef = useRef(null);
+  const isConnectingRef = useRef(false);
+
+  useEffect(() => {
+    accountRef.current = account;
+  }, [account]);
+
+  // Try auto-connecting once on load if wallet provider already has authorized accounts
   useEffect(() => {
     const eth = getEthereumProvider();
-    if (eth) {
-      eth.request({ method: 'eth_accounts' })
-        .then(async (accounts) => {
-          if (accounts && accounts.length > 0) {
-            handleConnect(true); // silent auto-connect
-          }
-        })
-        .catch(() => {});
+    if (!eth) return;
 
-      // Listen to account changes
-      const handleAccountsChanged = (accounts) => {
-        if (accounts.length > 0) {
-          handleConnect(true);
-        } else {
-          setAccount(null);
-          setSigner(null);
-          setBalance('0.0000');
-        }
-      };
+    // Passive check on load (no popup)
+    handleConnect(false);
 
-      eth.on?.('accountsChanged', handleAccountsChanged);
-      return () => {
-        eth.removeListener?.('accountsChanged', handleAccountsChanged);
-      };
-    }
+    // Listen to account changes
+    const handleAccountsChanged = (accounts) => {
+      if (!accounts || accounts.length === 0) {
+        setAccount(null);
+        setSigner(null);
+        setBalance('0.0000');
+        accountRef.current = null;
+        return;
+      }
+      const newAddress = accounts[0];
+      // CRITICAL: If the address matches the active account, ignore to prevent infinite loop & balance fluctuation
+      if (accountRef.current && newAddress.toLowerCase() === accountRef.current.toLowerCase()) {
+        return;
+      }
+      // If user switched accounts in BridgeKey, connect to new account
+      handleConnect(true);
+    };
+
+    eth.on?.('accountsChanged', handleAccountsChanged);
+    return () => {
+      eth.removeListener?.('accountsChanged', handleAccountsChanged);
+    };
   }, []);
 
-  const handleConnect = async (isAuto = false) => {
+  const handleConnect = async (requestPermission = true) => {
+    if (isConnectingRef.current) return;
     try {
+      isConnectingRef.current = true;
       setIsConnecting(true);
-      if (!isAuto) setConnectError(null);
-      const data = await connectWallet();
-      setAccount(data.address);
-      setBalance(data.balance);
-      setSigner(data.signer);
-      setConnectError(null);
+      if (requestPermission) setConnectError(null);
+
+      const data = await connectWallet(requestPermission);
+      if (data) {
+        setAccount(data.address);
+        accountRef.current = data.address;
+        setSigner(data.signer);
+        // Retain previous non-zero balance if current fetch was throttled to 0
+        setBalance((prev) => {
+          if (data.balance && data.balance !== '0.0000') return data.balance;
+          return prev && prev !== '0.0000' ? prev : data.balance;
+        });
+        setConnectError(null);
+      }
     } catch (err) {
       console.warn("Wallet connect:", err.message);
-      if (!isAuto) {
+      if (requestPermission) {
         setConnectError(err.message || "Failed to connect BridgeKey wallet.");
       }
     } finally {
+      isConnectingRef.current = false;
       setIsConnecting(false);
     }
   };

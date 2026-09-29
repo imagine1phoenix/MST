@@ -52,7 +52,7 @@ export const MST_NETWORK_PARAMS = {
   blockExplorerUrls: [MST_EXPLORER_URL]
 };
 
-export async function connectWallet() {
+export async function connectWallet(requestPermission = true) {
   const eth = getEthereumProvider();
   if (!eth) {
     throw new Error("BridgeKey (or Web3) wallet not detected in your browser. Please ensure your BridgeKey extension is installed and enabled.");
@@ -60,27 +60,37 @@ export async function connectWallet() {
 
   try {
     let accounts = [];
-    try {
-      accounts = await eth.request({ method: "eth_requestAccounts" });
-    } catch (reqErr) {
-      if (reqErr.code === 4001 || reqErr.message?.includes("User rejected") || reqErr.message?.includes("rejected")) {
-        throw new Error("Connection request was cancelled in BridgeKey.");
+    if (requestPermission) {
+      try {
+        accounts = await eth.request({ method: "eth_requestAccounts" });
+      } catch (reqErr) {
+        if (reqErr.code === 4001 || reqErr.message?.includes("User rejected") || reqErr.message?.includes("rejected")) {
+          throw new Error("Connection request was cancelled in BridgeKey.");
+        }
+        if (reqErr.code === -32002) {
+          throw new Error("Connection request is already pending. Please click the BridgeKey extension icon in your browser to approve.");
+        }
+        throw reqErr;
       }
-      if (reqErr.code === -32002) {
-        throw new Error("Connection request is already pending. Please click the BridgeKey extension icon in your browser to approve.");
+    } else {
+      // Passive check: only read accounts already permitted
+      accounts = await eth.request({ method: "eth_accounts" });
+      if (!accounts || accounts.length === 0) {
+        return null;
       }
-      throw reqErr;
     }
 
     if (!accounts || accounts.length === 0) {
       throw new Error("No accounts found in BridgeKey. Please unlock your wallet and select an account.");
     }
 
-    // Attempt network switch, but NEVER abort connection if switch is declined or unsupported
-    try {
-      await ensureMstNetwork();
-    } catch (netErr) {
-      console.warn("MST network check non-fatal warning:", netErr?.message || netErr);
+    // Only attempt network switch if this was an active user click
+    if (requestPermission) {
+      try {
+        await ensureMstNetwork();
+      } catch (netErr) {
+        console.warn("MST network check non-fatal warning:", netErr?.message || netErr);
+      }
     }
 
     // Initialize BrowserProvider with "any" to avoid network change freezes

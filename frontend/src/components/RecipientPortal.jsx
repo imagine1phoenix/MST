@@ -18,54 +18,61 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
     }
   }, [activeDeliveryId]);
 
-  // Auto-poll delivery status every 3 seconds for live Key 1 / Key 2 updates
+  // Auto-poll delivery status every 4 seconds for live Key 1 / Key 2 updates
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchDelivery(deliveryId);
-    }, 3000);
+      fetchDelivery(deliveryId, true); // true = silent background poll
+    }, 4000);
     return () => clearInterval(interval);
   }, [deliveryId]);
 
-  const fetchDelivery = async (idToFetch) => {
+  const fetchDelivery = async (idToFetch, isSilent = false) => {
     try {
-      setIsLoading(true);
+      if (!isSilent) setIsLoading(true);
       const id = idToFetch || deliveryId;
 
       // 1. Try fetching from Relay API
-      const res = await fetch(`${RELAY_API_URL}/api/terminal/status/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setDelivery(data);
-        return;
-      }
+      try {
+        const res = await fetch(`${RELAY_API_URL}/api/terminal/status/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDelivery(data);
+          return;
+        }
+      } catch (_) {}
 
       // 2. Fallback to Contract if signer exists
       if (signer) {
-        const contract = getContractInstance(signer);
-        if (contract) {
-          const d = await contract.getDelivery(id);
-          setDelivery({
-            id: Number(d.id),
-            sender: d.sender,
-            courier: d.courier,
-            recipient: d.recipient,
-            escrowAmount: (Number(d.escrowAmount) / 1e18).toFixed(4),
-            cashbackAmount: (Number(d.cashbackAmount) / 1e18).toFixed(4),
-            courierPayout: (Number(d.courierPayout) / 1e18).toFixed(4),
-            targetLat: Number(d.targetLat) / 1e6,
-            targetLon: Number(d.targetLon) / 1e6,
-            allowedRadiusMeters: Number(d.allowedRadiusMeters),
-            terminalConfirmed: d.terminalConfirmed,
-            recipientConfirmed: d.recipientConfirmed,
-            status: Number(d.status),
-            unlockDoor: d.terminalConfirmed && d.recipientConfirmed
-          });
+        try {
+          const contract = getContractInstance(signer);
+          if (contract) {
+            const d = await contract.getDelivery(id);
+            setDelivery({
+              id: Number(d.id),
+              sender: d.sender,
+              courier: d.courier,
+              recipient: d.recipient,
+              escrowAmount: (Number(d.escrowAmount) / 1e18).toFixed(4),
+              cashbackAmount: (Number(d.cashbackAmount) / 1e18).toFixed(4),
+              courierPayout: (Number(d.courierPayout) / 1e18).toFixed(4),
+              targetLat: Number(d.targetLat) / 1e6,
+              targetLon: Number(d.targetLon) / 1e6,
+              allowedRadiusMeters: Number(d.allowedRadiusMeters),
+              terminalConfirmed: d.terminalConfirmed,
+              recipientConfirmed: d.recipientConfirmed,
+              status: Number(d.status),
+              unlockDoor: d.terminalConfirmed && d.recipientConfirmed
+            });
+            return;
+          }
+        } catch (contractErr) {
+          console.warn("Delivery fetch skipped:", contractErr.message);
           return;
         }
       }
 
-      // Mock default if none found
-      setDelivery({
+      // Mock default only if no delivery loaded yet
+      setDelivery(prev => prev || {
         id: Number(id),
         sender: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
         courier: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
