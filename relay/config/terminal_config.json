@@ -1,0 +1,23 @@
+{
+  "wifiSsid": "BMS_Buildathon",
+  "wifiPassword": "Bmsce$2026$!",
+  "relayHost": "http://10.80.79.100:5001",
+  "updatedAt": "2026-09-29T09:05:00.000Z",
+  "knownNetworks": [
+    {
+      "ssid": "BMS_Buildathon",
+      "password": "Bmsce$2026$!",
+      "description": "Venue Wi-Fi (BMS Buildathon)"
+    },
+    {
+      "ssid": "Prit's iPhone",
+      "password": "12345678",
+      "description": "iPhone Hotspot (172.20.10.2:5001)"
+    },
+    {
+      "ssid": "AndroidAP",
+      "password": "12345678",
+      "description": "Android Hotspot"
+    }
+  ]
+}

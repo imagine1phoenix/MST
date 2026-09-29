@@ -1,8 +1,8 @@
 import React from 'react';
-import { ShieldCheck, Wallet, ExternalLink, RefreshCw, Cpu, Send } from 'lucide-react';
+import { ShieldCheck, Wallet, ExternalLink, RefreshCw, Cpu, Send, Sliders } from 'lucide-react';
 import { formatAddress, MST_CHAIN_ID_DECIMAL } from '../utils/web3';
 
-export default function Navbar({ account, balance, onConnect, isConnecting, contractAddress, onOpenTelegram }) {
+export default function Navbar({ account, balance, onConnect, isConnecting, contractAddress, onOpenTelegram, onOpenAdmin }) {
   return (
     <header style={{
       borderBottom: '1px solid rgba(0, 242, 254, 0.2)',
@@ -91,6 +91,17 @@ export default function Navbar({ account, balance, onConnect, isConnecting, cont
           >
             <Send size={13} color="var(--accent-cyan)" />
             <span>Telegram Bot</span>
+          </button>
+
+          {/* Admin & Terminal Config */}
+          <button
+            onClick={onOpenAdmin}
+            className="btn-secondary"
+            style={{ padding: '7px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+            title="Configure Wi-Fi and Relay Connection"
+          >
+            <Sliders size={13} color="var(--accent-cyan)" />
+            <span>Admin</span>
           </button>
 
           {/* Wallet Button */}

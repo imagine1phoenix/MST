@@ -4,7 +4,8 @@ import SenderPortal from './components/SenderPortal';
 import RecipientPortal from './components/RecipientPortal';
 import TerminalMonitor from './components/TerminalMonitor';
 import TelegramBotPortal from './components/TelegramBotPortal';
-import { Package, KeyRound, Cpu, FileText, ExternalLink, ShieldCheck, AlertCircle, X, RefreshCw, Send } from 'lucide-react';
+import AdminPortal from './components/AdminPortal';
+import { Package, KeyRound, Cpu, FileText, ExternalLink, ShieldCheck, AlertCircle, X, RefreshCw, Send, Sliders } from 'lucide-react';
 import { connectWallet, getEthereumProvider } from './utils/web3';
 import contractConfig from './config/contract.json';
 
@@ -86,6 +87,17 @@ export default function App() {
     }
   };
 
+  // Route check for /admin or #admin
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isPathAdmin = window.location.pathname.toLowerCase().includes('/admin');
+      const isHashAdmin = window.location.hash.toLowerCase().includes('admin');
+      if (isPathAdmin || isHashAdmin) {
+        setActiveTab('admin');
+      }
+    }
+  }, []);
+
   const handleDeliveryCreated = (newDelivery) => {
     setActiveDeliveryId(newDelivery.id.toString());
   };
@@ -99,6 +111,7 @@ export default function App() {
         isConnecting={isConnecting}
         contractAddress={contractConfig.contractAddress}
         onOpenTelegram={() => setActiveTab('telegram')}
+        onOpenAdmin={() => setActiveTab('admin')}
       />
 
       {/* Main Container */}
@@ -286,6 +299,29 @@ export default function App() {
               <Send size={15} color={activeTab === 'telegram' ? '#000000' : 'var(--accent-cyan)'} />
               <span>5. Telegram Alerts</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('admin')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '9px 16px',
+                borderRadius: '11px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'admin' ? 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)' : 'transparent',
+                color: activeTab === 'admin' ? '#000000' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'admin' ? '0 0 16px rgba(0, 242, 254, 0.45)' : 'none'
+              }}
+            >
+              <Sliders size={15} color={activeTab === 'admin' ? '#000000' : 'var(--accent-cyan)'} />
+              <span>6. Admin & Wi-Fi</span>
+            </button>
           </div>
         </div>
 
@@ -318,6 +354,12 @@ export default function App() {
         {activeTab === 'telegram' && (
           <TelegramBotPortal
             account={account}
+          />
+        )}
+
+        {activeTab === 'admin' && (
+          <AdminPortal
+            activeDeliveryId={activeDeliveryId}
           />
         )}
 

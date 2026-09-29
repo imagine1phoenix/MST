@@ -6,7 +6,27 @@ export const MST_CHAIN_ID_HEX = "0x" + MST_CHAIN_ID_DECIMAL.toString(16);
 export const MST_RPC_URL = import.meta.env.VITE_MST_RPC_URL || "https://testnetrpc.mstblockchain.com";
 export const MST_EXPLORER_URL = import.meta.env.VITE_MST_EXPLORER_URL || "https://testnet.mstscan.com";
 export const MST_CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || contractConfig.contractAddress;
-export const RELAY_API_URL = (import.meta.env.VITE_RELAY_API_URL || "http://localhost:5001").replace(/\/$/, "");
+export function getRelayApiUrl() {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("mst_relay_api_url");
+    if (saved && saved.trim()) return saved.trim().replace(/\/$/, "");
+  }
+  return (import.meta.env.VITE_RELAY_API_URL || "http://localhost:5001").replace(/\/$/, "");
+}
+
+export function setRelayApiUrl(url) {
+  if (typeof window !== "undefined") {
+    const clean = (url || "").trim().replace(/\/$/, "");
+    if (clean) {
+      localStorage.setItem("mst_relay_api_url", clean);
+    } else {
+      localStorage.removeItem("mst_relay_api_url");
+    }
+    window.dispatchEvent(new CustomEvent("relay-url-changed", { detail: clean }));
+  }
+}
+
+export const RELAY_API_URL = getRelayApiUrl();
 
 // Helper to find the active Ethereum / BridgeKey provider
 export function getEthereumProvider() {

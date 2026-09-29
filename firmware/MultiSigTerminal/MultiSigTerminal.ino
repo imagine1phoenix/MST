@@ -18,8 +18,10 @@
 #define MFRC522_SPICLOCK (1000000u) // 1 MHz clean SPI clock for jumper wires
 #include <MFRC522.h>
 #include <Newrick.h>
+#include <Preferences.h>
 #include <SPI.h>
 #include <TinyGPSPlus.h>
+#include <WebServer.h>
 #include <WiFi.h>
 #include <Wire.h>
 
@@ -31,12 +33,28 @@ void pollDeliveryStatus();
 void updateOled(const char *line1, const char *line2);
 void connectWiFi();
 void syncDeliveryId();
+void loadStoredConfig();
+void saveStoredConfig(const String &ssid, const String &pass, const String &relay);
+void startApConfigPortal();
 
-// --- Configuration ---
-const char *WIFI_SSID = "BMS_Buildathon";
-const char *WIFI_PASSWORD = "Bmsce$2026$!";
-const char *RELAY_HOST = "http://10.80.79.100"; // Mac Relay IP (iPhone Hotspot)
+// --- Configuration (Dynamic with NVS Flash Storage) ---
+Preferences prefs;
+WebServer apServer(80);
+bool inApMode = false;
+
+String activeSsid = "BMS_Buildathon";
+String activePassword = "Bmsce$2026$!";
+String activeRelayHost = "http://10.80.79.100:5001";
 int currentDeliveryId = 8; // Synced dynamically from relay server
+
+// Fallback Hotspot for Demo Stages (tries this if primary Wi-Fi is unavailable)
+const char *BACKUP_SSID = "Prit's iPhone";
+const char *BACKUP_PASS = "12345678";
+const char *BACKUP_RELAY = "http://172.20.10.2:5001";
+
+#define RELAY_HOST (activeRelayHost.c_str())
+#define WIFI_SSID (activeSsid.c_str())
+#define WIFI_PASSWORD (activePassword.c_str())
 
 // --- Pin Definitions (Neurick Shield CN2, CN9, CN10) ---
 #define PIN_RFID_SS 3     // SDA / Chip Select (CN2)
@@ -161,6 +179,18 @@ void setup() {
 }
 
 void loop() {
+  // If in AP Config Mode, handle web server requests and check for cancel button
+  if (inApMode) {
+    apServer.handleClient();
+    if (nr.buttonState > 0) {
+      Serial.println(F("\n[Button] User pressed button in AP mode! Retrying Wi-Fi..."));
+      inApMode = false;
+      connectWiFi();
+    }
+    delay(10);
+    return;
+  }
+
   // Feed GPS serial parser
   while (gpsSerial.available() > 0) {
     gps.encode(gpsSerial.read());
@@ -428,30 +458,126 @@ void syncDeliveryId() {
   http.end();
 }
 
+void loadStoredConfig() {
+  prefs.begin("mst_term", false);
+  String s = prefs.getString("ssid", "");
+  String p = prefs.getString("pass", "");
+  String r = prefs.getString("relay", "");
+  prefs.end();
+
+  if (s.length() > 0) {
+    activeSsid = s;
+    activePassword = p;
+    Serial.printf("[Config] Loaded Wi-Fi from NVS: %s\n", activeSsid.c_str());
+  }
+  if (r.length() > 0) {
+    activeRelayHost = r;
+    Serial.printf("[Config] Loaded Relay Host from NVS: %s\n", activeRelayHost.c_str());
+  }
+}
+
+void saveStoredConfig(const String &ssid, const String &pass, const String &relay) {
+  prefs.begin("mst_term", false);
+  prefs.putString("ssid", ssid);
+  prefs.putString("pass", pass);
+  prefs.putString("relay", relay);
+  prefs.end();
+  Serial.println(F("[Config] Configuration saved to ESP32 Flash Memory!"));
+}
+
+void startApConfigPortal() {
+  inApMode = true;
+  WiFi.disconnect();
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("MST-Terminal-Setup", "12345678");
+
+  IPAddress apIP = WiFi.softAPIP();
+  Serial.printf("\n======================================================\n");
+  Serial.printf("📡 [AP Config Portal] Started Access Point 'MST-Terminal-Setup'\n");
+  Serial.printf("   Connect phone to 'MST-Terminal-Setup' (Pass: 12345678)\n");
+  Serial.printf("   Open browser: http://%s\n", apIP.toString().c_str());
+  Serial.printf("======================================================\n");
+
+  updateOled("WIFI SETUP AP", "192.168.4.1");
+
+  apServer.on("/", HTTP_GET, []() {
+    String html = F("<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>MST Terminal Setup</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#02080e;color:#fff;margin:0;padding:24px;}.card{background:rgba(255,255,255,0.05);border:1px solid rgba(0,242,254,0.3);border-radius:16px;padding:24px;max-width:440px;margin:auto;}h2{color:#00f2fe;margin-top:0;font-size:1.3rem;}p{color:#94a3b8;font-size:0.85rem;}label{display:block;margin:12px 0 4px;font-size:0.8rem;color:#cbd5e1;font-weight:600;}input{width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:#0f172a;color:#fff;font-size:0.9rem;}button{width:100%;padding:14px;background:#00f2fe;color:#000;border:none;border-radius:8px;font-weight:bold;margin-top:20px;cursor:pointer;font-size:0.95rem;}.preset{display:inline-block;padding:6px 10px;background:rgba(0,242,254,0.15);border:1px solid #00f2fe;border-radius:6px;font-size:0.75rem;margin:4px 4px 4px 0;cursor:pointer;color:#a5f3fc;}</style></head><body>");
+    html += F("<div class='card'><h2>⚙️ MST Terminal Wi-Fi Setup</h2><p>Configure network and relay host for this terminal.</p><form method='POST' action='/save'>");
+    html += "<label>Wi-Fi SSID</label><input type='text' id='s' name='s' value='" + activeSsid + "' required>";
+    html += F("<div style='margin-top:6px;'><span class='preset' onclick=\"document.getElementById('s').value='BMS_Buildathon'\">BMS_Buildathon</span><span class='preset' onclick=\"document.getElementById('s').value='Prit\\'s iPhone'\">Prit's iPhone</span></div>");
+    html += "<label>Wi-Fi Password</label><input type='password' name='p' value='" + activePassword + "'>";
+    html += "<label>Relay Host URL (with port :5001)</label><input type='text' name='r' value='" + activeRelayHost + "' required>";
+    html += F("<button type='submit'>Save & Reboot Terminal</button></form></div></body></html>");
+    apServer.send(200, "text/html", html);
+  });
+
+  apServer.on("/save", HTTP_POST, []() {
+    String newSsid = apServer.arg("s");
+    String newPass = apServer.arg("p");
+    String newRelay = apServer.arg("r");
+
+    if (newSsid.length() > 0 && newRelay.length() > 0) {
+      saveStoredConfig(newSsid, newPass, newRelay);
+      String html = F("<!DOCTYPE html><html><body style='background:#02080e;color:#00f2fe;font-family:sans-serif;text-align:center;padding:40px;'><h2>✅ Saved Successfully!</h2><p style='color:#fff;'>Terminal is rebooting to connect to your Wi-Fi...</p></body></html>");
+      apServer.send(200, "text/html", html);
+      delay(1500);
+      ESP.restart();
+    } else {
+      apServer.send(400, "text/plain", "Missing fields");
+    }
+  });
+
+  apServer.begin();
+}
+
 void connectWiFi() {
-  Serial.print("[WiFi] Connecting to: ");
-  Serial.println(WIFI_SSID);
-  updateOled("CONNECTING WIFI", WIFI_SSID);
+  loadStoredConfig();
+
+  Serial.print(F("[WiFi] Connecting to primary Wi-Fi: "));
+  Serial.println(activeSsid);
+  updateOled("CONNECTING WIFI", activeSsid.c_str());
 
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   delay(100);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(activeSsid.c_str(), activePassword.c_str());
 
   int tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries < 30) {
+  while (WiFi.status() != WL_CONNECTED && tries < 20) {
     delay(500);
     Serial.print(".");
     tries++;
   }
+
+  // If primary fails and we have a backup hotspot, try backup automatically
+  if (WiFi.status() != WL_CONNECTED && activeSsid != String(BACKUP_SSID)) {
+    Serial.printf("\n[WiFi] Primary timed out. Trying backup hotspot: %s...\n", BACKUP_SSID);
+    updateOled("TRYING BACKUP", BACKUP_SSID);
+    WiFi.disconnect();
+    delay(100);
+    WiFi.begin(BACKUP_SSID, BACKUP_PASS);
+    tries = 0;
+    while (WiFi.status() != WL_CONNECTED && tries < 16) {
+      delay(500);
+      Serial.print(".");
+      tries++;
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      activeSsid = BACKUP_SSID;
+      activePassword = BACKUP_PASS;
+      activeRelayHost = BACKUP_RELAY;
+    }
+  }
+
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n[WiFi] Connected! IP: " + WiFi.localIP().toString());
+    Serial.println(F("\n[WiFi] Connected successfully!"));
+    Serial.println("  IP Address: " + WiFi.localIP().toString());
+    Serial.println("  Gateway:    " + WiFi.gatewayIP().toString());
     updateOled("WIFI CONNECTED", WiFi.localIP().toString().c_str());
     delay(1000);
   } else {
-    Serial.println("\n[WiFi] Could not connect. Running in standalone/offline mode.");
-    Serial.println("       Tip: On iPhone, ensure 'Maximize Compatibility' is turned ON in Settings > Personal Hotspot!");
-    updateOled("WIFI FAILED", "Check Hotspot");
-    delay(1500);
+    Serial.println(F("\n[WiFi] Could not connect to any known network."));
+    Serial.println(F("       Starting Access Point Portal for Over-The-Air Setup..."));
+    startApConfigPortal();
   }
 }

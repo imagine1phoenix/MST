@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
+const os = require("os");
 const dotenv = require("dotenv");
 dotenv.config({ path: path.join(__dirname, ".env") });
 
@@ -285,6 +287,89 @@ app.post("/api/b2b/awb-webhook", (req, res) => {
     escrowBridge: "Ready for createDelivery()",
     timestamp: new Date().toISOString()
   });
+});
+
+// ==========================================
+// --- Terminal Wi-Fi & Network Configuration ---
+// ==========================================
+const TERMINAL_CONFIG_FILE = path.join(__dirname, "config/terminal_config.json");
+
+function getLocalIpAddresses() {
+  const nets = os.networkInterfaces();
+  const results = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === "IPv4" && !net.internal) {
+        results.push({ name, address: net.address });
+      }
+    }
+  }
+  return results;
+}
+
+function loadTerminalConfig() {
+  const localIps = getLocalIpAddresses();
+  const primaryIp = localIps[0]?.address || "127.0.0.1";
+  const defaultConf = {
+    wifiSsid: "BMS_Buildathon",
+    wifiPassword: "Bmsce$2026$!",
+    relayHost: `http://${primaryIp}:5001`,
+    currentIp: primaryIp,
+    availableIps: localIps,
+    knownNetworks: [
+      { ssid: "BMS_Buildathon", password: "Bmsce$2026$!", description: "BMS Buildathon Venue Wi-Fi" },
+      { ssid: "Prit's iPhone", password: "12345678", description: "Prit's iPhone Hotspot (172.20.10.2:5001)" },
+      { ssid: "AndroidAP", password: "12345678", description: "Android Hotspot" }
+    ],
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    if (fs.existsSync(TERMINAL_CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(TERMINAL_CONFIG_FILE, "utf8"));
+      return {
+        ...defaultConf,
+        ...data,
+        currentIp: primaryIp,
+        availableIps: localIps
+      };
+    }
+  } catch (err) {
+    console.warn("[TerminalConfig] Load error:", err.message);
+  }
+  return defaultConf;
+}
+
+let terminalConfig = loadTerminalConfig();
+
+// Get active terminal Wi-Fi & relay host config + host machine IPs
+app.get("/api/terminal/config", (req, res) => {
+  const localIps = getLocalIpAddresses();
+  const primaryIp = localIps[0]?.address || "127.0.0.1";
+  terminalConfig.currentIp = primaryIp;
+  terminalConfig.availableIps = localIps;
+  res.json(terminalConfig);
+});
+
+// Update terminal Wi-Fi credentials and target relay host
+app.post("/api/terminal/config", (req, res) => {
+  const { wifiSsid, wifiPassword, relayHost, knownNetworks } = req.body;
+  if (wifiSsid) terminalConfig.wifiSsid = wifiSsid;
+  if (wifiPassword !== undefined) terminalConfig.wifiPassword = wifiPassword;
+  if (relayHost) terminalConfig.relayHost = relayHost.replace(/\/$/, "");
+  if (Array.isArray(knownNetworks)) terminalConfig.knownNetworks = knownNetworks;
+  terminalConfig.updatedAt = new Date().toISOString();
+
+  try {
+    const dir = path.dirname(TERMINAL_CONFIG_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(TERMINAL_CONFIG_FILE, JSON.stringify(terminalConfig, null, 2), "utf8");
+    console.log(`[TerminalConfig] Updated -> SSID: "${terminalConfig.wifiSsid}" | Relay: "${terminalConfig.relayHost}"`);
+  } catch (err) {
+    console.warn("[TerminalConfig] Save error:", err.message);
+  }
+
+  res.json({ success: true, config: terminalConfig });
 });
 
 // ==========================================
