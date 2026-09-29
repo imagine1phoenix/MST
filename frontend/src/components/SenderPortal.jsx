@@ -204,6 +204,10 @@ export default function SenderPortal({ signer, account, balance, onConnect, onDe
         errMsg = 'Transaction was rejected in your wallet.';
       } else if (err.message?.includes('insufficient funds')) {
         errMsg = 'Insufficient MSTC balance for this escrow amount + gas fee.';
+      } else if (err.message?.includes('429') || err.info?.error?.message?.includes('429')) {
+        errMsg = 'MST Testnet RPC is rate-limited. Please wait 10–15 seconds and try again.';
+      } else if (err.message?.includes('could not coalesce') || err.code === -32603) {
+        errMsg = 'RPC connection issue. Please refresh the page and try again.';
       }
       setStatusMessage({
         type: 'error',
