@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 const contractService = require("./contractService");
+const { telegramService } = require("./telegramService");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -221,6 +222,27 @@ app.post("/api/terminal/scan", async (req, res) => {
     };
     scanAuditLog.unshift(scanRecord);
 
+    // Instant async Telegram alert to Sender and Recipient
+    (async () => {
+      try {
+        const delivery = await contractService.getDelivery(targetDeliveryId);
+        await telegramService.notifyDeliveryEvent({
+          deliveryId: targetDeliveryId,
+          sender: delivery?.sender,
+          recipient: delivery?.recipient,
+          type: 'KEY1_VERIFIED',
+          data: {
+            rfidUid: cleanUid,
+            lat,
+            lon,
+            txHash: txResult.txHash
+          }
+        });
+      } catch (tgErr) {
+        console.warn('[Telegram] Key 1 scan alert error:', tgErr.message);
+      }
+    })();
+
     res.json({
       success: true,
       deliveryId: targetDeliveryId,
@@ -278,10 +300,183 @@ app.post("/api/b2b/awb-webhook", (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+// ==========================================
+// --- Telegram Bot Management Endpoints ---
+// ==========================================
+
+// Get Telegram bot status & linked users
+app.get("/api/telegram/status", (req, res) => {
+  res.json(telegramService.getStatus());
+});
+
+// Update Telegram bot token or default chat ID at runtime
+app.post("/api/telegram/config", async (req, res) => {
+  try {
+    const { token, defaultChatId } = req.body;
+    const ok = await telegramService.updateConfig({ token, defaultChatId });
+    res.json({
+      success: ok,
+      status: telegramService.getStatus()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Link a user's wallet address to their Telegram Chat ID
+app.post("/api/telegram/link", (req, res) => {
+  const { walletAddress, chatId } = req.body;
+  if (!walletAddress || !chatId) {
+    return res.status(400).json({ error: "walletAddress and chatId are required" });
+  }
+  const linked = telegramService.linkWallet(walletAddress, chatId);
+  res.json({
+    success: linked,
+    walletAddress,
+    chatId,
+    status: telegramService.getStatus()
+  });
+});
+
+// Webhook / frontend trigger for parcel events (e.g. newly created, settled)
+app.post("/api/telegram/event", async (req, res) => {
+  try {
+    const { deliveryId, sender, recipient, type, data } = req.body;
+    await telegramService.notifyDeliveryEvent({
+      deliveryId,
+      sender,
+      recipient,
+      type,
+      data
+    });
+    res.json({ success: true, message: `Event ${type} dispatched to Telegram subscribers.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Send a test Telegram alert for demo verification
+app.post("/api/telegram/test-notify", async (req, res) => {
+  try {
+    const { deliveryId = 20, type = 'SETTLED', recipientWallet, senderWallet } = req.body;
+    const dId = Number(deliveryId) || 20;
+
+    let delivery = null;
+    if (contractService.contract) {
+      try {
+        delivery = await contractService.getDelivery(dId);
+      } catch (_) {}
+    }
+
+    const sender = senderWallet || delivery?.sender || "0xb2CAcD0597ac693057aa80dA0eF9892b8951dd0a";
+    const recipient = recipientWallet || delivery?.recipient || "0x90F79bf6EB2c4f870365E785982E1f101E93b906";
+
+    await telegramService.notifyDeliveryEvent({
+      deliveryId: dId,
+      sender,
+      recipient,
+      type,
+      data: {
+        amount: delivery?.escrowAmount || '0.1000',
+        cashback: delivery?.cashbackAmount || '0.0050',
+        payout: delivery?.courierPayout || '0.0950',
+        rfidUid: '0x82',
+        lat: '28.6129',
+        lon: '77.2295',
+        txHash: '0xaedc0aaa503b3ac8fcad1f43723553dcadd708e353016ec05ca056f92ed46b22'
+      }
+    });
+
+    res.json({
+      success: true,
+      deliveryId: dId,
+      type,
+      sender,
+      recipient,
+      message: `Test ${type} alert sent to registered Telegram users!`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Background tracker for automated blockchain settlement & creation notifications
+const monitoredDeliveries = new Map();
+
+function startBlockchainMonitor() {
+  setInterval(async () => {
+    if (!contractService.contract) return;
+    try {
+      const countBig = await contractService.contract.deliveryCount();
+      const count = Number(countBig);
+
+      // Inspect recent deliveries
+      const start = Math.max(1, count - 5);
+      for (let id = start; id <= count; id++) {
+        const d = await contractService.getDelivery(id);
+        if (!d) continue;
+
+        const prev = monitoredDeliveries.get(id);
+
+        if (!prev) {
+          // Newly discovered delivery
+          monitoredDeliveries.set(id, { status: d.status, terminalConfirmed: d.terminalConfirmed });
+          // If created recently (within last 30 minutes) and status is 0, notify
+          const ageSeconds = Math.floor(Date.now() / 1000) - d.createdAt;
+          if (ageSeconds < 1800 && d.status === 0) {
+            telegramService.notifyDeliveryEvent({
+              deliveryId: id,
+              sender: d.sender,
+              recipient: d.recipient,
+              type: 'CREATED',
+              data: {
+                amount: d.escrowAmount,
+                cashback: d.cashbackAmount,
+                payout: d.courierPayout,
+                lat: d.targetLat,
+                lon: d.targetLon
+              }
+            }).catch(() => {});
+          }
+        } else {
+          // Status change: Settled (Status 3)
+          if (prev.status !== 3 && d.status === 3) {
+            prev.status = 3;
+            monitoredDeliveries.set(id, prev);
+            telegramService.notifyDeliveryEvent({
+              deliveryId: id,
+              sender: d.sender,
+              recipient: d.recipient,
+              type: 'SETTLED',
+              data: {
+                amount: d.escrowAmount,
+                cashback: d.cashbackAmount,
+                payout: d.courierPayout
+              }
+            }).catch(() => {});
+          }
+        }
+      }
+    } catch (_) {
+      // Graceful error handling for RPC latency
+    }
+  }, 10000);
+}
+
+app.listen(PORT, async () => {
   console.log("=================================================");
   console.log(` 🚀 MST Smart Terminal Relay running on port ${PORT}`);
   console.log(`    Network: MST Testnet (Chain ID: 91562037)`);
   console.log(`    Terminal Signer: ${contractService.terminalWallet.address}`);
   console.log("=================================================");
+
+  // Initialize Telegram Bot Service
+  try {
+    await telegramService.init(contractService, () => latestTelemetry);
+  } catch (err) {
+    console.warn("[Telegram] Init warning:", err.message);
+  }
+
+  // Start automated on-chain monitor
+  startBlockchainMonitor();
 });

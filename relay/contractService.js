@@ -126,13 +126,18 @@ class ContractService {
 
     const tx = await this.contract.terminalConfirm(deliveryId, proofUid, latMicro, lonMicro);
     console.log(`[ContractService] Tx broadcasted: ${tx.hash}`);
-    const receipt = await tx.wait();
-    console.log(`[ContractService] Tx confirmed in block ${receipt.blockNumber}`);
+
+    // Wait for block receipt in the background so the ESP32 HTTPClient gets an immediate 200 OK
+    tx.wait().then((receipt) => {
+      console.log(`[ContractService] Tx confirmed in block ${receipt.blockNumber}`);
+    }).catch((waitErr) => {
+      console.warn(`[ContractService] Background confirmation notice:`, waitErr?.message || waitErr);
+    });
 
     return {
       success: true,
       txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
+      status: "broadcasted",
       mstScanUrl: `${this.config.explorerUrl || "https://testnet.mstscan.com"}/tx/${tx.hash}`
     };
   }

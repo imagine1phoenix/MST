@@ -154,6 +154,24 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
         txHash: tx.hash
       });
 
+      // Dispatch Telegram SETTLED event to notify Sender (cashback) & Recipient (door unlocked)
+      fetch(`${RELAY_API_URL}/api/telegram/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deliveryId: Number(deliveryId),
+          sender: delivery?.sender,
+          recipient: delivery?.recipient || account,
+          type: 'SETTLED',
+          data: {
+            amount: delivery?.escrowAmount,
+            cashback: delivery?.cashbackAmount,
+            payout: delivery?.courierPayout,
+            txHash: tx.hash
+          }
+        })
+      }).catch(() => {});
+
       // Refresh delivery status
       await fetchDelivery(deliveryId);
     } catch (err) {

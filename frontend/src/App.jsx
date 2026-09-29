@@ -3,7 +3,8 @@ import Navbar from './components/Navbar';
 import SenderPortal from './components/SenderPortal';
 import RecipientPortal from './components/RecipientPortal';
 import TerminalMonitor from './components/TerminalMonitor';
-import { Package, KeyRound, Cpu, FileText, ExternalLink, ShieldCheck, AlertCircle, X, RefreshCw } from 'lucide-react';
+import TelegramBotPortal from './components/TelegramBotPortal';
+import { Package, KeyRound, Cpu, FileText, ExternalLink, ShieldCheck, AlertCircle, X, RefreshCw, Send } from 'lucide-react';
 import { connectWallet, getEthereumProvider } from './utils/web3';
 import contractConfig from './config/contract.json';
 
@@ -97,6 +98,7 @@ export default function App() {
         onConnect={handleConnect}
         isConnecting={isConnecting}
         contractAddress={contractConfig.contractAddress}
+        onOpenTelegram={() => setActiveTab('telegram')}
       />
 
       {/* Main Container */}
@@ -195,6 +197,22 @@ export default function App() {
             <FileText size={18} />
             <span>4. Verification & MSTScan</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('telegram')}
+            className={activeTab === 'telegram' ? 'btn-primary' : 'btn-secondary'}
+            style={{ position: 'relative' }}
+          >
+            <Send size={18} color={activeTab === 'telegram' ? '#050b14' : 'var(--accent-cyan)'} />
+            <span>5. 🤖 Telegram Alerts</span>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: 'var(--accent-cyan)',
+              boxShadow: '0 0 8px var(--accent-cyan)'
+            }}></span>
+          </button>
         </div>
 
         {/* Tab Contents */}
@@ -220,6 +238,12 @@ export default function App() {
         {activeTab === 'terminal' && (
           <TerminalMonitor
             activeDeliveryId={activeDeliveryId}
+          />
+        )}
+
+        {activeTab === 'telegram' && (
+          <TelegramBotPortal
+            account={account}
           />
         )}
 

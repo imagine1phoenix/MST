@@ -1,8 +1,8 @@
 import React from 'react';
-import { ShieldCheck, Wallet, ExternalLink, RefreshCw, Cpu } from 'lucide-react';
+import { ShieldCheck, Wallet, ExternalLink, RefreshCw, Cpu, Send } from 'lucide-react';
 import { formatAddress, MST_CHAIN_ID_DECIMAL } from '../utils/web3';
 
-export default function Navbar({ account, balance, onConnect, isConnecting, contractAddress }) {
+export default function Navbar({ account, balance, onConnect, isConnecting, contractAddress, onOpenTelegram }) {
   return (
     <header style={{
       borderBottom: '1px solid var(--border-color)',
@@ -79,6 +79,17 @@ export default function Navbar({ account, balance, onConnect, isConnecting, cont
             <span>Claim $MSTC Faucet</span>
             <ExternalLink size={14} />
           </a>
+
+          {/* Telegram Bot Alerts Link */}
+          <button
+            onClick={onOpenTelegram}
+            className="btn-secondary"
+            style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Configure & Test Telegram Bot Notifications"
+          >
+            <Send size={14} color="var(--accent-cyan)" />
+            <span>Telegram Bot</span>
+          </button>
 
           {/* Wallet Button */}
           {account ? (

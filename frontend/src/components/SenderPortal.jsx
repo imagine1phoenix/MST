@@ -201,6 +201,26 @@ export default function SenderPortal({ signer, account, balance, onConnect, onDe
         body: JSON.stringify({ deliveryId })
       }).catch(() => {});
 
+      // Dispatch Telegram notification to Sender and Recipient
+      fetch(`${RELAY_API_URL}/api/telegram/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deliveryId,
+          sender: account,
+          recipient,
+          type: 'CREATED',
+          data: {
+            amount,
+            cashback: cashbackReward,
+            payout: courierPayout,
+            lat: parsedLat,
+            lon: parsedLon,
+            txHash: tx.hash
+          }
+        })
+      }).catch(() => {});
+
       setStatusMessage({
         type: 'success',
         text: `Delivery #${deliveryId} locked in escrow on MST Testnet!`
