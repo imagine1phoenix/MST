@@ -7,8 +7,6 @@
  * Sensors & Pinout:
  *  - RC522 RFID (SPI):   SDA->IO10, SCK->IO12, MOSI->IO11, MISO->IO13, RST->IO6
  *  - HC-SR04 Ultrasonic: Trig->IO15, Echo->IO16 (3.3V divider)
- *  - DHT22 Temp/Humidity: Data->IO5
- *  - MQ135 Gas Sensor:   Analog->IO4 (ADC1)
  *  - NEO-6M GPS (UART):  TX->IO17 (RX2), RX->IO18 (TX2)
  *  - SSD1306 OLED (I2C): IO8 (SDA), IO9 (SCL) @ Address 0x3C
  *  - Locker Servo:       Neurick Servo Port 1 (6.5V rail via STM32 / Newrick
@@ -18,7 +16,6 @@
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <DHT.h>
 #include <HTTPClient.h>
 #define MFRC522_SPICLOCK (1000000u) // 1 MHz clean SPI clock for jumper wires
 #include <MFRC522.h>
@@ -53,11 +50,6 @@ int currentDeliveryId = 8; // Synced dynamically from relay server
 #define PIN_US_TRIG 10    // Ultrasonic Trigger (CN9)
 #define PIN_US_ECHO 11    // Ultrasonic Echo (CN9)
 
-#define PIN_DHT_DATA 5
-#define DHTTYPE DHT22
-
-#define PIN_MQ135_ANALOG 4 // Safe ADC1 pin
-
 #define PIN_GPS_RX 12 // Connects to GPS Module TX (CN10)
 #define PIN_GPS_TX 13 // Connects to GPS Module RX (CN10)
 
@@ -66,7 +58,6 @@ TinyGPSPlus gps;
 Newrick nr;
 Adafruit_SSD1306 display(128, 32, &Wire, -1);
 MFRC522 rfid(PIN_RFID_SS, PIN_RFID_RST);
-DHT dht(PIN_DHT_DATA, DHTTYPE);
 HardwareSerial gpsSerial(2);
 
 // --- State Variables ---
@@ -108,9 +99,6 @@ void setup() {
   // 3. Initialize Ultrasonic Sensor
   pinMode(PIN_US_TRIG, OUTPUT);
   pinMode(PIN_US_ECHO, INPUT);
-
-  // 4. Initialize DHT22
-  dht.begin();
 
   // 5. Initialize NEO-6M GPS on HardwareSerial 2
   gpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
@@ -326,15 +314,6 @@ void handleRfidTap() {
 }
 
 void sendTelemetry(float distanceCm) {
-  float temp = dht.readTemperature();
-  float hum = dht.readHumidity();
-  int rawGas = analogRead(PIN_MQ135_ANALOG);
-
-  if (isnan(temp))
-    temp = 22.0;
-  if (isnan(hum))
-    hum = 48.0;
-
   float batteryVolts = 12.0;
   if (nr.updateSensors()) {
     batteryVolts = nr.batteryVolts;
@@ -342,9 +321,8 @@ void sendTelemetry(float distanceCm) {
 
   byte currentRfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
 
-  Serial.printf("[Telemetry] T: %.1fC | H: %.1f%% | Gas: %d | Dist: %.1f cm | "
-                "Batt: %.2fV | RFID: 0x%02X\n",
-                temp, hum, rawGas, distanceCm, batteryVolts, currentRfidVer);
+  Serial.printf("[Telemetry] Dist: %.1f cm | Batt: %.2fV | RFID: 0x%02X\n",
+                distanceCm, batteryVolts, currentRfidVer);
 
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
@@ -352,9 +330,6 @@ void sendTelemetry(float distanceCm) {
     http.addHeader("Content-Type", "application/json");
 
     String json = "{\"deliveryId\":" + String(currentDeliveryId) +
-                  ",\"temperature\":" + String(temp, 1) +
-                  ",\"humidity\":" + String(hum, 1) +
-                  ",\"airQualityPpm\":" + String(rawGas) +
                   ",\"distanceCm\":" + String(distanceCm, 1) +
                   ",\"batteryVolts\":" + String(batteryVolts, 2) +
                   ",\"rfidVer\":" + String(currentRfidVer) +

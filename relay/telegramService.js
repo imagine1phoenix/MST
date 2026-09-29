@@ -326,7 +326,7 @@ class TelegramService {
                       `You are now connected to receive real-time cryptographic notifications for your <b>Zero-Trust Multi-Sig Deliveries</b> on the <b>MST Blockchain</b>!\n\n` +
                       `📌 <b>Available Commands:</b>\n` +
                       `• <code>/status 20</code> — Check on-chain & hardware status of Delivery #20\n` +
-                      `• <code>/telemetry</code> — View live IoT sensors (Temp, Gas, Ultrasonic)\n` +
+                      `• <code>/telemetry</code> — View live IoT sensors (Ultrasonic, GPS, Battery)\n` +
                       `• <code>/link &lt;0x_wallet&gt;</code> — Link another wallet address\n` +
                       `• <code>/latest</code> — Show latest active delivery\n\n` +
                       `🌐 <b>DApp:</b> <a href="https://mst-sandy.vercel.app">mst-sandy.vercel.app</a>`;
@@ -473,8 +473,6 @@ class TelegramService {
     }
 
     const msg = `📡 <b>ESP32 Smart Terminal Telemetry</b>\n\n` +
-                `🌡️ <b>Temperature:</b> <code>${telem.temp || 22}°C</code> (Safe Cold-Chain)\n` +
-                `💨 <b>Air/Gas Sensor:</b> <code>${telem.gas || 2000} ppm</code> (Normal)\n` +
                 `📏 <b>Compartment Depth:</b> <code>${telem.dist || 400} cm</code>\n` +
                 `💳 <b>RFID Hardware:</b> <code>${telem.rfidChip ? 'RC522 (0x82 Active)' : 'Active'}</code>\n` +
                 `📍 <b>GPS Fix:</b> <code>${telem.lat || 28.6129}, ${telem.lon || 77.2295}</code>\n` +

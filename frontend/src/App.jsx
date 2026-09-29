@@ -148,7 +148,7 @@ export default function App() {
             Zero-Trust Smart Delivery Terminal
           </h1>
           <p style={{ color: 'var(--text-secondary)', maxWidth: '640px', margin: '0 auto', fontSize: '0.98rem', lineHeight: '1.6' }}>
-            Combining Two-Factor Multi-Sig Escrow with Real-World GPS Geofencing & Cold-Chain Auditing on the MST Blockchain.
+            Combining Two-Factor Multi-Sig Escrow with Real-World GPS Geofencing & Smart Terminal Verification on the MST Blockchain.
           </p>
         </div>
 
@@ -361,7 +361,7 @@ export default function App() {
                 <ul style={{ paddingLeft: '20px', lineHeight: '1.8', color: 'var(--text-secondary)' }}>
                   <li>✅ <strong>Two-Factor Multi-Sig Smart Contract:</strong> Verified, unit tested with 11 tests in Hardhat.</li>
                   <li>✅ <strong>GPS Geofencing Math:</strong> Integer Haversine / Equirectangular on-chain checking.</li>
-                  <li>✅ <strong>Cold-Chain & Environmental Auditing:</strong> DHT22, MQ135, HC-SR04 telemetry pipeline.</li>
+                  <li>✅ <strong>Package Presence & Hardware Telemetry:</strong> HC-SR04 ultrasonic, STM32 battery, and servo latch telemetry pipeline.</li>
                   <li>✅ <strong>5% Cashback Reward:</strong> Programmatically distributed to sender wallet upon settlement.</li>
                   <li>✅ <strong>BridgeKey Wallet Integration:</strong> EIP-1193 standard, 1-click network switcher and signing.</li>
                   <li>✅ <strong>Neurick Hardware Firmware:</strong> Full ESP32-S3 Arduino sketch with SPI RFID, UART GPS, I2C OLED, and Servo locker latch.</li>

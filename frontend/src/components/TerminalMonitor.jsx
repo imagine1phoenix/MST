@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Radio, Thermometer, Droplets, Wind, Ruler, MapPin, Lock, Unlock, Zap, CheckCircle2, AlertTriangle, ExternalLink, Battery, Activity } from 'lucide-react';
+import { Radio, Ruler, MapPin, Lock, Unlock, Zap, CheckCircle2, AlertTriangle, ExternalLink, Battery, Activity } from 'lucide-react';
 import { PRESETS } from './SenderPortal';
 import { RELAY_API_URL } from '../utils/web3';
 
 export default function TerminalMonitor({ activeDeliveryId }) {
   const [telemetry, setTelemetry] = useState({
-    temperature: 22.4,
-    humidity: 49.2,
-    airQualityPpm: 120,
     distanceCm: 14.5,
+    batteryVolts: 12.1,
+    rfidVer: '0x82',
     lat: 28.6129,
     lon: 77.2295,
-    coldChainSafe: true,
     timestamp: new Date().toLocaleTimeString()
   });
 
@@ -72,9 +70,6 @@ export default function TerminalMonitor({ activeDeliveryId }) {
         // Fallback simulation noise for visual responsiveness
         setTelemetry(prev => ({
           ...prev,
-          temperature: +(22.0 + Math.sin(Date.now() / 10000) * 1.5).toFixed(1),
-          humidity: +(48.0 + Math.cos(Date.now() / 8000) * 2.0).toFixed(1),
-          airQualityPpm: Math.round(110 + Math.random() * 20),
           distanceCm: +(15.0 + Math.sin(Date.now() / 5000) * 3).toFixed(1),
           timestamp: new Date().toLocaleTimeString()
         }));
@@ -145,58 +140,14 @@ export default function TerminalMonitor({ activeDeliveryId }) {
       {/* Real-time Hardware Telemetry Bar */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '16px'
       }}>
-        {/* Temperature Gauge */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem' }}>Temperature (DHT22)</span>
-            <Thermometer size={18} color="var(--accent-cyan)" />
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-            {telemetry.temperature}°C
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-            <span className={`badge ${telemetry.temperature <= 25 ? 'badge-green' : 'badge-amber'}`} style={{ fontSize: '0.68rem' }}>
-              {telemetry.temperature <= 25 ? 'Cold Chain OK' : 'Temp Warning'}
-            </span>
-          </div>
-        </div>
-
-        {/* Humidity Gauge */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem' }}>Humidity (DHT22)</span>
-            <Droplets size={18} color="var(--accent-blue)" />
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-            {telemetry.humidity}%
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Relative Humidity
-          </div>
-        </div>
-
-        {/* Air Quality (MQ135) */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem' }}>Air Quality (MQ135)</span>
-            <Wind size={18} color="var(--accent-purple)" />
-          </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-            {telemetry.airQualityPpm} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>PPM</span>
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--accent-green)', marginTop: '8px' }}>
-            Safe Storage Atmosphere
-          </div>
-        </div>
-
         {/* Ultrasonic Presence (HC-SR04) */}
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
             <span style={{ fontSize: '0.82rem' }}>Package Presence (HC-SR04)</span>
-            <Ruler size={18} color="var(--accent-amber)" />
+            <Ruler size={18} color="var(--accent-cyan)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
             {telemetry.distanceCm} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>cm</span>
@@ -224,17 +175,31 @@ export default function TerminalMonitor({ activeDeliveryId }) {
         <div className="glass-panel" style={{
           padding: '20px',
           borderColor: isDoorUnlocked ? 'var(--accent-green)' : 'var(--border-color)',
-          background: isDoorUnlocked ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-card)'
+          background: isDoorUnlocked ? 'rgba(0, 255, 213, 0.08)' : 'var(--bg-card)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
             <span style={{ fontSize: '0.82rem' }}>Servo Lock (MG995)</span>
-            {isDoorUnlocked ? <Unlock size={18} color="var(--accent-green)" /> : <Lock size={18} color="var(--accent-amber)" />}
+            {isDoorUnlocked ? <Unlock size={18} color="var(--accent-green)" /> : <Lock size={18} color="var(--accent-cyan)" />}
           </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: isDoorUnlocked ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
+          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: isDoorUnlocked ? 'var(--accent-green)' : 'var(--accent-cyan)' }}>
             {isDoorUnlocked ? 'UNLOCKED' : 'LOCKED'}
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '8px' }}>
             {isDoorUnlocked ? 'Door released for pickup' : 'Multi-Sig verification required'}
+          </div>
+        </div>
+
+        {/* Terminal Location */}
+        <div className="glass-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.82rem' }}>GPS Fix (NEO-6M)</span>
+            <MapPin size={18} color="var(--accent-cyan)" />
+          </div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            {telemetry.lat?.toFixed(4)}, {telemetry.lon?.toFixed(4)}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', marginTop: '8px' }}>
+            ● Real-Time Geofence Active
           </div>
         </div>
       </div>
@@ -505,16 +470,6 @@ export default function TerminalMonitor({ activeDeliveryId }) {
                 <td style={{ padding: '8px' }}>NEO-6M GPS (CN10)</td>
                 <td style={{ padding: '8px' }}>UART RX / TX</td>
                 <td style={{ padding: '8px' }} className="mono">GPIO 12 / 13</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <td style={{ padding: '8px' }}>DHT22 Temp/Humidity</td>
-                <td style={{ padding: '8px' }}>1-Wire Digital</td>
-                <td style={{ padding: '8px' }} className="mono">GPIO 5</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <td style={{ padding: '8px' }}>MQ135 Gas Sensor</td>
-                <td style={{ padding: '8px' }}>Analog (ADC1)</td>
-                <td style={{ padding: '8px' }} className="mono">GPIO 4</td>
               </tr>
               <tr>
                 <td style={{ padding: '8px' }}>OLED + STM32 (Neurick)</td>

@@ -13,17 +13,14 @@ const PORT = process.env.PORT || 5001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory state for live monitoring & cold-chain audit
+// In-memory state for live monitoring & hardware telemetry
 let latestTelemetry = {
-  temperature: 21.5,
-  humidity: 48.0,
-  airQualityPpm: 112,
   distanceCm: 18.4,
   batteryVolts: 11.8,
   lat: 28.6129,
   lon: 77.2295,
-  timestamp: new Date().toISOString(),
-  coldChainSafe: true
+  rfidVer: '0x82',
+  timestamp: new Date().toISOString()
 };
 
 let latestScannedCard = {
@@ -62,39 +59,29 @@ app.get("/api/network-info", (req, res) => {
   });
 });
 
-// Receive telemetry from ESP32-S3 (DHT22, MQ135, HC-SR04, GPS)
+// Receive telemetry from ESP32-S3 (HC-SR04 ultrasonic, STM32 battery, GPS, RC522)
 app.post("/api/terminal/telemetry", (req, res) => {
-  const { temperature, humidity, airQualityPpm, distanceCm, batteryVolts, lat, lon, deliveryId, rfidVer } = req.body;
+  const { distanceCm, batteryVolts, lat, lon, deliveryId, rfidVer } = req.body;
 
-  // Cold chain rules (e.g., Pharmaceuticals or perishable goods: safe < 25°C, air quality < 300 ppm)
-  const tempSafe = (temperature === undefined) || (Number(temperature) <= 25.0);
-  const airSafe = (airQualityPpm === undefined) || (Number(airQualityPpm) <= 300);
-  const coldChainSafe = tempSafe && airSafe;
-
-  const rfidHex = rfidVer !== undefined ? '0x' + Number(rfidVer).toString(16).toUpperCase() : 'N/A';
+  const rfidHex = rfidVer !== undefined ? '0x' + Number(rfidVer).toString(16).toUpperCase() : (latestTelemetry.rfidVer || '0x82');
 
   latestTelemetry = {
     deliveryId: deliveryId || latestTelemetry.deliveryId || 1,
-    temperature: Number(temperature !== undefined ? temperature : latestTelemetry.temperature),
-    humidity: Number(humidity !== undefined ? humidity : latestTelemetry.humidity),
-    airQualityPpm: Number(airQualityPpm !== undefined ? airQualityPpm : latestTelemetry.airQualityPpm),
     distanceCm: Number(distanceCm !== undefined ? distanceCm : latestTelemetry.distanceCm),
     batteryVolts: Number(batteryVolts !== undefined ? batteryVolts : latestTelemetry.batteryVolts),
     lat: Number(lat !== undefined ? lat : latestTelemetry.lat),
     lon: Number(lon !== undefined ? lon : latestTelemetry.lon),
     rfidVer: rfidHex,
-    timestamp: new Date().toISOString(),
-    coldChainSafe
+    timestamp: new Date().toISOString()
   };
 
   telemetryHistory.unshift(latestTelemetry);
   if (telemetryHistory.length > 50) telemetryHistory.pop();
 
-  console.log(`[Telemetry Received] Temp: ${latestTelemetry.temperature}°C | Gas: ${latestTelemetry.airQualityPpm} ppm | Ultrasonic: ${latestTelemetry.distanceCm} cm | RFID Chip: ${rfidHex}`);
+  console.log(`[Telemetry Received] Distance: ${latestTelemetry.distanceCm} cm | Battery: ${latestTelemetry.batteryVolts}V | GPS: ${latestTelemetry.lat}, ${latestTelemetry.lon} | RFID Chip: ${rfidHex}`);
 
   res.json({
     status: "success",
-    coldChainSafe,
     recordedAt: latestTelemetry.timestamp
   });
 });

@@ -1,6 +1,6 @@
 # 📦 Blockchain-Verified Smart Delivery Terminal
 
-> **Two-Factor Multi-Signature IoT Escrow with GPS Geofencing & Cold-Chain Auditing**  
+> **Two-Factor Multi-Signature IoT Escrow with GPS Geofencing & Package Verification**  
 > **Target Track:** MST × Robotics Track (MST Blockchain Buildathon)  
 > **Document & Build Version:** 3.0.0
 
@@ -110,7 +110,5 @@ Open `firmware/MultiSigTerminal.ino` in the **Arduino IDE**:
 - **RC522 RFID (SPI):** SDA→IO10, SCK→IO12, MOSI→IO11, MISO→IO13, RST→IO6
 - **NEO-6M GPS (UART):** TX→IO17, RX→IO18
 - **HC-SR04 Ultrasonic:** Trig→IO15, Echo→IO16 (3.3V divider)
-- **DHT22 Temperature:** Data→IO5
-- **MQ135 Gas Sensor:** Analog→IO4 (ADC1)
 - **OLED Display:** IO8 (SDA), IO9 (SCL) @ Address `0x3C`
 - **MG995 Servo Latch:** Neurick Servo Port 1 (`nr.servo`)
