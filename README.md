@@ -28,7 +28,7 @@ Upon completion, 95% of the escrow is automatically paid to the courier and a **
 ```
 MST/
 ├── contracts/        # Hardhat project with MultiSigDelivery.sol & unit tests
-├── firmware/         # Newrro Neurick ESP32-S3 Arduino firmware (RFID, GPS, Sensors, Servo)
+├── firmware/         # Newrro Neurick ESP32-S3 Arduino firmware (RFID, GPS, Sensors, OLED)
 ├── relay/            # Node.js backend relay server connecting IoT hardware to MST Blockchain
 └── frontend/         # React + Vite Web3 DApp with BridgeKey integration
 ```
@@ -111,4 +111,3 @@ Open `firmware/MultiSigTerminal.ino` in the **Arduino IDE**:
 - **NEO-6M GPS (UART):** TX→IO17, RX→IO18
 - **HC-SR04 Ultrasonic:** Trig→IO15, Echo→IO16 (3.3V divider)
 - **OLED Display:** IO8 (SDA), IO9 (SCL) @ Address `0x3C`
-- **MG995 Servo Latch:** Neurick Servo Port 1 (`nr.servo`)

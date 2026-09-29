@@ -9,8 +9,6 @@
  *  - HC-SR04 Ultrasonic: Trig->IO15, Echo->IO16 (3.3V divider)
  *  - NEO-6M GPS (UART):  TX->IO17 (RX2), RX->IO18 (TX2)
  *  - SSD1306 OLED (I2C): IO8 (SDA), IO9 (SCL) @ Address 0x3C
- *  - Locker Servo:       Neurick Servo Port 1 (6.5V rail via STM32 / Newrick
- * library)
  * ============================================================================
  */
 
@@ -81,7 +79,6 @@ void setup() {
   // NOTE: According to Neurick manual, nr.begin() starts I2C on SDA=8, SCL=9 at
   // 400kHz. Never call Wire.begin() separately!
   nr.begin();
-  nr.servo(0, 0, 0); // Lock compartment latch initially
 
   // 2. Initialize 0.91" SSD1306 OLED (128x32)
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -297,9 +294,16 @@ void handleRfidTap() {
       Serial.println(F("========================================================\n"));
       isKey1Confirmed = true;
       updateOled("KEY 1 VERIFIED", "Awaiting Recipient");
+    } else if (httpCode < 0) {
+      Serial.printf("❌ [Relay Connection Error %d]: %s (Is relay running on %s?)\n",
+                    httpCode, http.errorToString(httpCode).c_str(), RELAY_HOST);
+      Serial.println(F("========================================================\n"));
+      updateOled("RELAY OFFLINE", "Check Server IP/Port");
+      delay(2000);
+      updateOled("AWAITING SCAN", "Hold RFID to Terminal");
     } else {
       String resp = http.getString();
-      Serial.printf("❌ [Relay Error %d]: %s\n", httpCode, resp.c_str());
+      Serial.printf("❌ [Relay HTTP %d]: %s\n", httpCode, resp.c_str());
       Serial.println(F("========================================================\n"));
       updateOled("SCAN REJECTED", "Check Geofence/UID");
       delay(2000);
@@ -355,13 +359,11 @@ void pollDeliveryStatus() {
     // Check if unlocked / settled
     if (payload.indexOf("\"unlockDoor\":true") >= 0 ||
         payload.indexOf("\"status\":3") >= 0) {
-      if (!isDoorUnlocked) {
-        isDoorUnlocked = true;
+      if (!isSettled) {
         isSettled = true;
-        Serial.println("\n🎉 [SETTLEMENT] Multi-Sig Complete! Opening Locker "
-                       "Compartment.");
-        nr.servo(90, 0, 0); // Rotate Servo 1 to 90 degrees (Latch Open)
-        updateOled("DELIVERY SETTLED", "Compartment Open!");
+        isDoorUnlocked = true;
+        Serial.println("\n🎉 [SETTLEMENT] Multi-Sig Complete! Delivery Settled on MST Blockchain.");
+        updateOled("DELIVERY SETTLED", "Pickup Authorized");
       }
     }
   }

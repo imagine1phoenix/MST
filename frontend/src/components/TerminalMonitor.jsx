@@ -171,21 +171,21 @@ export default function TerminalMonitor({ activeDeliveryId }) {
           </div>
         </div>
 
-        {/* Physical Door Latch (MG995 Servo) */}
+        {/* Settlement / Release Status */}
         <div className="glass-panel" style={{
           padding: '20px',
           borderColor: isDoorUnlocked ? 'var(--accent-green)' : 'var(--border-color)',
           background: isDoorUnlocked ? 'rgba(0, 255, 213, 0.08)' : 'var(--bg-card)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.82rem' }}>Servo Lock (MG995)</span>
+            <span style={{ fontSize: '0.82rem' }}>Release State</span>
             {isDoorUnlocked ? <Unlock size={18} color="var(--accent-green)" /> : <Lock size={18} color="var(--accent-cyan)" />}
           </div>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, color: isDoorUnlocked ? 'var(--accent-green)' : 'var(--accent-cyan)' }}>
-            {isDoorUnlocked ? 'UNLOCKED' : 'LOCKED'}
+            {isDoorUnlocked ? 'AUTHORIZED' : 'LOCKED'}
           </div>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-            {isDoorUnlocked ? 'Door released for pickup' : 'Multi-Sig verification required'}
+            {isDoorUnlocked ? 'Multi-Sig verified for pickup' : 'Multi-Sig verification required'}
           </div>
         </div>
 

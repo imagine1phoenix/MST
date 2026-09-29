@@ -9,8 +9,6 @@
  *  - HC-SR04 Ultrasonic: Trig->IO15, Echo->IO16 (3.3V divider)
  *  - NEO-6M GPS (UART):  TX->IO17 (RX2), RX->IO18 (TX2)
  *  - SSD1306 OLED (I2C): IO8 (SDA), IO9 (SCL) @ Address 0x3C
- *  - Locker Servo:       Neurick Servo Port 1 (6.5V rail via STM32 / Newrick
- * library)
  * ============================================================================
  */
 
@@ -81,7 +79,6 @@ void setup() {
   // NOTE: According to Neurick manual, nr.begin() starts I2C on SDA=8, SCL=9 at
   // 400kHz. Never call Wire.begin() separately!
   nr.begin();
-  nr.servo(0, 0, 0); // Lock compartment latch initially
 
   // 2. Initialize 0.91" SSD1306 OLED (128x32)
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -160,7 +157,7 @@ void setup() {
   // 7. Connect to WiFi
   connectWiFi();
 
-  updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+  updateOled("AWAITING SCAN", "Receiver Tap Card");
 }
 
 void loop() {
@@ -267,16 +264,16 @@ void handleRfidTap() {
   cleanUid.toUpperCase();
 
   Serial.println(F("\n========================================================"));
-  Serial.println(F("💳 [RFID TAG SCANNED SUCCESSFULLY!]"));
+  Serial.println(F("💳 [RECEIVER RFID SCANNED!]"));
   Serial.printf ("   UID Size:           %d bytes\n", rfid.uid.size);
   Serial.println("   Raw HEX:            [ " + uidHex + "]");
   Serial.println("   Clean UID:          " + cleanUid);
   Serial.println("   Raw DEC:            [ " + uidDec + "]");
   Serial.printf ("   Target Delivery ID: #%d\n", currentDeliveryId);
   Serial.println(F("--------------------------------------------------------"));
-  Serial.println("   Transmitting Key 1 to MST Relay Server (" + String(RELAY_HOST) + ")...");
+  Serial.println("   Verifying Receiver Key 1 with MST Relay (" + String(RELAY_HOST) + ")...");
 
-  updateOled(("UID: " + cleanUid).c_str(), "Transmitting Key 1...");
+  updateOled(("UID: " + cleanUid).c_str(), "Verifying Receiver");
 
   // Post scan event to Relay Server
   if (WiFi.status() == WL_CONNECTED) {
@@ -292,25 +289,25 @@ void handleRfidTap() {
     int httpCode = http.POST(json);
     if (httpCode == 200) {
       String resp = http.getString();
-      Serial.println(F("✅ [Relay 200 OK] Scan Accepted! Key 1 Confirmed on MST Blockchain!"));
+      Serial.println(F("✅ [Relay 200 OK] Receiver Verified! Key 1 Confirmed on MST Blockchain!"));
       Serial.println("   Relay Response: " + resp);
       Serial.println(F("========================================================\n"));
       isKey1Confirmed = true;
-      updateOled("KEY 1 VERIFIED", "Awaiting Recipient");
+      updateOled("KEY 1 VERIFIED", "Receiver Confirmed");
     } else if (httpCode < 0) {
       Serial.printf("❌ [Relay Connection Error %d]: %s (Is relay running on %s?)\n",
                     httpCode, http.errorToString(httpCode).c_str(), RELAY_HOST);
       Serial.println(F("========================================================\n"));
       updateOled("RELAY OFFLINE", "Check Server IP/Port");
       delay(2000);
-      updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+      updateOled("AWAITING SCAN", "Receiver Tap Card");
     } else {
       String resp = http.getString();
       Serial.printf("❌ [Relay HTTP %d]: %s\n", httpCode, resp.c_str());
       Serial.println(F("========================================================\n"));
-      updateOled("SCAN REJECTED", "Check Geofence/UID");
+      updateOled("SCAN REJECTED", "Wrong Card / GPS");
       delay(2000);
-      updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+      updateOled("AWAITING SCAN", "Receiver Tap Card");
     }
     http.end();
   } else {
@@ -362,13 +359,11 @@ void pollDeliveryStatus() {
     // Check if unlocked / settled
     if (payload.indexOf("\"unlockDoor\":true") >= 0 ||
         payload.indexOf("\"status\":3") >= 0) {
-      if (!isDoorUnlocked) {
-        isDoorUnlocked = true;
+      if (!isSettled) {
         isSettled = true;
-        Serial.println("\n🎉 [SETTLEMENT] Multi-Sig Complete! Opening Locker "
-                       "Compartment.");
-        nr.servo(90, 0, 0); // Rotate Servo 1 to 90 degrees (Latch Open)
-        updateOled("DELIVERY SETTLED", "Compartment Open!");
+        isDoorUnlocked = true;
+        Serial.println("\n🎉 [SETTLEMENT] Multi-Sig Complete! Delivery Settled on MST Blockchain.");
+        updateOled("DELIVERY SETTLED", "Pickup Authorized");
       }
     }
   }
@@ -416,7 +411,7 @@ void syncDeliveryId() {
             updateOled("DELIVERY SYNCED",
                        ("ID: " + String(currentDeliveryId)).c_str());
             delay(500);
-            updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+            updateOled("AWAITING SCAN", "Receiver Tap Card");
           }
         }
       }

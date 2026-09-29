@@ -361,10 +361,10 @@ export default function App() {
                 <ul style={{ paddingLeft: '20px', lineHeight: '1.8', color: 'var(--text-secondary)' }}>
                   <li>✅ <strong>Two-Factor Multi-Sig Smart Contract:</strong> Verified, unit tested with 11 tests in Hardhat.</li>
                   <li>✅ <strong>GPS Geofencing Math:</strong> Integer Haversine / Equirectangular on-chain checking.</li>
-                  <li>✅ <strong>Package Presence & Hardware Telemetry:</strong> HC-SR04 ultrasonic, STM32 battery, and servo latch telemetry pipeline.</li>
+                  <li>✅ <strong>Package Presence & Hardware Telemetry:</strong> HC-SR04 ultrasonic, STM32 battery, and hardware telemetry pipeline.</li>
                   <li>✅ <strong>5% Cashback Reward:</strong> Programmatically distributed to sender wallet upon settlement.</li>
                   <li>✅ <strong>BridgeKey Wallet Integration:</strong> EIP-1193 standard, 1-click network switcher and signing.</li>
-                  <li>✅ <strong>Neurick Hardware Firmware:</strong> Full ESP32-S3 Arduino sketch with SPI RFID, UART GPS, I2C OLED, and Servo locker latch.</li>
+                  <li>✅ <strong>Neurick Hardware Firmware:</strong> Full ESP32-S3 Arduino sketch with SPI RFID, UART GPS, and I2C OLED display.</li>
                 </ul>
               </div>
             </div>

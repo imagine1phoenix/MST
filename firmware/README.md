@@ -40,12 +40,11 @@ Connect your sensors to the Neurick 40-pin P1 expansion header according to the 
 | **NEO-6M GPS** | TX | **GPIO 17** | Pin 14 | Connects to ESP32 RX |
 | **NEO-6M GPS** | RX | **GPIO 18** | Pin 16 | Connects to ESP32 TX |
 | **0.91" OLED** | I2C | **GPIO 8/9**| Internal | Address 0x3C via `nr.begin()` |
-| **MG995 Servo** | Signal | **Servo 1**| Dedicated | 6.5V rail via STM32 (`nr.servo`) |
-
+ 
 ---
 
 ## ⚡ How it Works with the Smart Contract
 
 1. **Package Presence Monitoring:** HC-SR04 detects package presence inside the compartment and reports to the Node.js relay.
 2. **Key 1 (Hardware Verification):** Recipient taps RFID card. The ESP32 reads card UID and GPS coordinates from NEO-6M, transmitting to the relay server.
-3. **Smart Lock Release:** When the smart contract confirms both Key 1 and Key 2 (BridgeKey digital approval), the relay returns `unlockDoor: true`. The ESP32 instructs the STM32 motion controller (`nr.servo(90, 0, 0)`) to mechanically unlock the compartment door for package retrieval!
+3. **Multi-Sig Settlement & Authorization:** When the smart contract confirms both Key 1 and Key 2 (BridgeKey digital approval), the relay returns `unlockDoor: true`. The ESP32 registers settlement on the OLED (`DELIVERY SETTLED - Pickup Authorized`) and settles the delivery on-chain!

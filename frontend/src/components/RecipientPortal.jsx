@@ -458,9 +458,9 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
                 <span className="mono">{delivery.allowedRadiusMeters} meters</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Locker Door Latch:</span>
+                <span style={{ color: 'var(--text-muted)' }}>Release Status:</span>
                 <span style={{ fontWeight: 700, color: delivery.unlockDoor ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
-                  {delivery.unlockDoor ? '🔓 UNLOCKED' : '🔒 LOCKED'}
+                  {delivery.unlockDoor ? '🔓 AUTHORIZED' : '🔒 PENDING'}
                 </span>
               </div>
 
