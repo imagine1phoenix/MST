@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import { ShieldCheck, CheckCircle2, Clock, AlertTriangle, KeyRound, Radio, ExternalLink } from 'lucide-react';
 import { getContractInstance, formatAddress, RELAY_API_URL } from '../utils/web3';
 
