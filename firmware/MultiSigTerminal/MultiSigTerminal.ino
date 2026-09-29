@@ -35,7 +35,7 @@ void syncDeliveryId();
 // --- Configuration ---
 const char *WIFI_SSID = "BMS_Buildathon";
 const char *WIFI_PASSWORD = "Bmsce$2026$!";
-const char *RELAY_HOST = "http://10.80.79.100:5001"; // Mac Relay IP
+const char *RELAY_HOST = "http://10.80.79.100"; // Mac Relay IP (iPhone Hotspot)
 int currentDeliveryId = 8; // Synced dynamically from relay server
 
 // --- Pin Definitions (Neurick Shield CN2, CN9, CN10) ---
@@ -210,6 +210,14 @@ void loop() {
     float distanceCm = readUltrasonicCm();
     sendTelemetry(distanceCm);
     delay(400); // Simple debounce
+  }
+
+  // Auto-reconnect WiFi if disconnected (attempt every 10 seconds)
+  static unsigned long lastWifiRetry = 0;
+  if (WiFi.status() != WL_CONNECTED && millis() - lastWifiRetry > 10000) {
+    lastWifiRetry = millis();
+    Serial.println("[WiFi] Reconnecting to: " + String(WIFI_SSID));
+    WiFi.reconnect();
   }
 
   // Periodic Environmental Telemetry Reporting (every 4 seconds)
@@ -423,16 +431,27 @@ void syncDeliveryId() {
 void connectWiFi() {
   Serial.print("[WiFi] Connecting to: ");
   Serial.println(WIFI_SSID);
+  updateOled("CONNECTING WIFI", WIFI_SSID);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   int tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries < 20) {
+  while (WiFi.status() != WL_CONNECTED && tries < 30) {
     delay(500);
     Serial.print(".");
     tries++;
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n[WiFi] Connected! IP: " + WiFi.localIP().toString());
+    updateOled("WIFI CONNECTED", WiFi.localIP().toString().c_str());
+    delay(1000);
   } else {
-    Serial.println("\n[WiFi] Running in standalone/offline mode.");
+    Serial.println("\n[WiFi] Could not connect. Running in standalone/offline mode.");
+    Serial.println("       Tip: On iPhone, ensure 'Maximize Compatibility' is turned ON in Settings > Personal Hotspot!");
+    updateOled("WIFI FAILED", "Check Hotspot");
+    delay(1500);
   }
 }

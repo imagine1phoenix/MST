@@ -196,7 +196,7 @@ class TelegramService {
                 `👤 <b>Sender:</b> <code>${shortSender}</code>\n` +
                 `💰 <b>Escrow Value:</b> <code>${amountEth} $MSTC</code> (Fully funded ✅)\n` +
                 `📍 <b>Destination Terminal:</b> <code>${data.lat || '28.6129'}, ${data.lon || '77.2295'}</code>\n\n` +
-                `⏳ <i>We will notify you the moment the courier taps the RFID tag at the terminal locker!</i>`;
+                `⏳ <i>When the package arrives, hold your RFID card to the Smart Terminal to authenticate receipt!</i>`;
         } else {
           // Broadcaster / Default Admin
           msg = `📦 <b>MST Delivery #${deliveryId} Created</b>\n\n` +
@@ -207,22 +207,22 @@ class TelegramService {
         }
       } else if (type === 'KEY1_VERIFIED') {
         if (isRecipient) {
-          msg = `🚨 <b>YOUR PACKAGE HAS ARRIVED AT THE SMART TERMINAL!</b>\n\n` +
-                `Delivery <b>#${deliveryId}</b> arrived and was scanned at the destination locker!\n\n` +
-                `🔑 <b>Key 1 (Terminal RFID):</b> ✅ <b>VERIFIED</b> (UID: <code>${data.rfidUid || '0x82'}</code>)\n` +
-                `🛰️ <b>GPS Geofence:</b> ✅ <b>INSIDE 50m RADIUS</b>\n` +
-                `🔒 <b>Locker Door:</b> LATCHED SHUT (Awaiting Key 2)\n\n` +
-                `👉 <b>ACTION REQUIRED TO UNLOCK:</b>\n` +
-                `Open the <a href="https://mst-sandy.vercel.app">Recipient Portal</a> in BridgeKey and click <b>"Confirm Receipt (Sign Key 2)"</b> to pop open your compartment door!`;
+          msg = `🚨 <b>YOUR RECEIVER RFID CARD HAS BEEN VERIFIED!</b>\n\n` +
+                `Your card tap for Delivery <b>#${deliveryId}</b> was authenticated at the Smart Terminal!\n\n` +
+                `🔑 <b>Key 1 (Receiver RFID):</b> ✅ <b>VERIFIED</b> (UID: <code>${data.rfidUid || '0x82'}</code>)\n` +
+                `🛰️ <b>GPS Geofence:</b> ✅ <b>INSIDE ALLOWED RADIUS</b>\n` +
+                `🔒 <b>Status:</b> Key 1 Confirmed on MST Blockchain\n\n` +
+                `👉 <b>FINAL STEP TO FINALIZE:</b>\n` +
+                `Open the <a href="https://mst-sandy.vercel.app">Recipient Portal</a> in BridgeKey and click <b>"Sign & Confirm Receipt (Key 2)"</b> to complete release!`;
         } else if (isSender) {
-          msg = `💳 <b>PARCEL ARRIVED AT LOCKER! (Delivery #${deliveryId})</b>\n\n` +
-                `Good news! The courier has reached the Smart Terminal with your parcel:\n\n` +
-                `🏷️ <b>Hardware RFID Scan:</b> ✅ Verified\n` +
+          msg = `💳 <b>RECEIVER VERIFIED AT TERMINAL! (Delivery #${deliveryId})</b>\n\n` +
+                `Good news! The recipient has tapped their RFID card at the Smart Terminal:\n\n` +
+                `🏷️ <b>Receiver RFID Scan:</b> ✅ Verified\n` +
                 `🛰️ <b>Geofence Confirmation:</b> ✅ Target GPS Match\n` +
                 `🔒 <b>Status:</b> Key 1 Confirmed on MST Blockchain\n\n` +
-                `⏳ <i>The recipient has been alerted to sign Key 2 and retrieve the package. Your 5% cashback will disburse immediately upon pickup.</i>`;
+                `⏳ <i>The recipient is now completing the Key 2 signature. Your 5% cashback will disburse immediately upon settlement.</i>`;
         } else {
-          msg = `💳 <b>Key 1 Verified on-chain for Delivery #${deliveryId}</b>\n\n` +
+          msg = `💳 <b>Key 1 Receiver Tap Verified on-chain for Delivery #${deliveryId}</b>\n\n` +
                 `RFID UID: <code>${data.rfidUid || '0x82'}</code>\n` +
                 `Terminal GPS: <code>${data.lat || '28.6129'}, ${data.lon || '77.2295'}</code>\n` +
                 `Status: Awaiting Recipient Key 2.`;

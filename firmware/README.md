@@ -46,5 +46,5 @@ Connect your sensors to the Neurick 40-pin P1 expansion header according to the 
 ## ⚡ How it Works with the Smart Contract
 
 1. **Package Presence Monitoring:** HC-SR04 detects package presence inside the compartment and reports to the Node.js relay.
-2. **Key 1 (Hardware Verification):** Recipient taps RFID card. The ESP32 reads card UID and GPS coordinates from NEO-6M, transmitting to the relay server.
-3. **Multi-Sig Settlement & Authorization:** When the smart contract confirms both Key 1 and Key 2 (BridgeKey digital approval), the relay returns `unlockDoor: true`. The ESP32 registers settlement on the OLED (`DELIVERY SETTLED - Pickup Authorized`) and settles the delivery on-chain!
+2. **Key 1 (Receiver Physical Verification):** The package receiver taps their personal RFID card on the RC522 reader. The ESP32 reads the receiver's card UID and GPS coordinates from the NEO-6M, transmitting to the relay server to confirm receiver presence within the geofence on-chain.
+3. **Key 2 & Multi-Sig Settlement:** When the receiver signs digital approval (Key 2 via BridgeKey wallet), the smart contract confirms both factors, releasing the 5% cashback to sender and payout to courier! The ESP32 registers settlement on the OLED (`DELIVERY SETTLED - Pickup Authorized`).

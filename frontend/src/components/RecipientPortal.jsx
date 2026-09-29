@@ -304,9 +304,9 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
                 <Clock size={18} color="var(--accent-amber)" />
               )}
             </div>
-            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Physical Terminal</div>
+            <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Receiver RFID Tap</div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              {delivery?.terminalConfirmed ? 'RFID + GPS Geofence Verified ✅' : 'Awaiting RFID tap at location...'}
+              {delivery?.terminalConfirmed ? 'Receiver Card & Geofence Verified ✅' : 'Scan your personal RFID card at the Smart Terminal'}
             </p>
           </div>
 
@@ -362,9 +362,17 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
             Action: Confirm Receipt (Key 2)
           </h3>
 
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '20px' }}>
-            By signing this transaction with your <strong>BridgeKey wallet</strong>, you cryptographically authorize delivery completion. If the physical terminal has already scanned your RFID card within the geofence, settlement will happen instantly!
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '14px' }}>
+            As the designated <strong>Receiver</strong>, your verification consists of two factors:
           </p>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '18px', background: 'rgba(255, 255, 255, 0.03)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ marginBottom: '6px' }}>
+              <strong>1. Physical Proof (Key 1):</strong> Scan your personal RFID card on the RC522 terminal within the GPS geofence. {delivery?.terminalConfirmed ? '✅ <span style="color: var(--accent-green); font-weight: 600;">Verified</span>' : '⏳ <em>Awaiting tap</em>'}
+            </div>
+            <div>
+              <strong>2. Digital Signature (Key 2):</strong> Sign this on-chain transaction using your <strong>BridgeKey wallet</strong> below.
+            </div>
+          </div>
 
           <button
             onClick={handleRecipientConfirm}

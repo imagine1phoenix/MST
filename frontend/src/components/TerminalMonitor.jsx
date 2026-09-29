@@ -210,10 +210,10 @@ export default function TerminalMonitor({ activeDeliveryId }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Radio size={22} color="var(--accent-cyan)" />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>RC522 Hardware RFID Scanner (Key 1)</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Receiver RFID Card Scanner (Key 1)</h3>
             </div>
             <span className={`badge ${hardwareScanState?.confirmedOnChain && hardwareScanState?.deliveryId === Number(scanDeliveryId) ? 'badge-green' : 'badge-amber'}`}>
-              {hardwareScanState?.confirmedOnChain && hardwareScanState?.deliveryId === Number(scanDeliveryId) ? '● Verified on MST Chain' : '● Awaiting Card Tap'}
+              {hardwareScanState?.confirmedOnChain && hardwareScanState?.deliveryId === Number(scanDeliveryId) ? '● Receiver Verified on MST Chain' : '● Awaiting Receiver Card Tap'}
             </span>
           </div>
 
@@ -264,7 +264,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
                 <CheckCircle2 size={24} color="var(--accent-green)" />
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--accent-green)' }}>
-                    Physical RFID Card Verified!
+                    Receiver RFID Card Verified!
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                     Source: {hardwareScanState.source === 'hardware' ? 'Physical RC522 Reader' : 'Manual Scan'}
@@ -330,10 +330,10 @@ export default function TerminalMonitor({ activeDeliveryId }) {
 
               <div>
                 <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '6px' }}>
-                  Awaiting Physical Card on RC522 Scanner
+                  Awaiting Receiver's Card on RC522 Scanner
                 </h4>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '380px', margin: '0 auto', lineHeight: '1.5' }}>
-                  Hold your physical RFID card against the RC522 antenna on the Neurick board. The hardware will automatically read the UID and broadcast <strong>Key 1</strong> to the MST Blockchain.
+                  The recipient must hold their assigned physical RFID card against the RC522 antenna on the Neurick board. The terminal automatically authenticates the receiver and broadcasts <strong>Key 1</strong> to the MST Blockchain.
                 </p>
               </div>
 
@@ -367,7 +367,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
                 }}
               >
                 <Lock size={16} />
-                <span>Waiting for Physical Card Scan...</span>
+                <span>Waiting for Receiver to Tap Card...</span>
               </button>
             </div>
           )}
@@ -395,7 +395,7 @@ export default function TerminalMonitor({ activeDeliveryId }) {
               <form onSubmit={handleSimulateScan} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.76rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                    Manual Override RFID Card UID:
+                    Manual Override Receiver Card UID:
                   </label>
                   <input
                     type="text"

@@ -33,9 +33,9 @@ void connectWiFi();
 void syncDeliveryId();
 
 // --- Configuration ---
-const char *WIFI_SSID = "BMS_Buildathon";
-const char *WIFI_PASSWORD = "Bmsce$2026$!";
-const char *RELAY_HOST = "http://10.80.79.100:5001"; // Mac Relay IP
+const char *WIFI_SSID = "Prit's iPhone";
+const char *WIFI_PASSWORD = "12345678";
+const char *RELAY_HOST = "http://172.20.10.2:5001"; // Mac Relay IP (iPhone Hotspot)
 int currentDeliveryId = 8; // Synced dynamically from relay server
 
 // --- Pin Definitions (Neurick Shield CN2, CN9, CN10) ---
@@ -157,7 +157,7 @@ void setup() {
   // 7. Connect to WiFi
   connectWiFi();
 
-  updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+  updateOled("AWAITING SCAN", "Receiver Tap Card");
 }
 
 void loop() {
@@ -212,6 +212,14 @@ void loop() {
     delay(400); // Simple debounce
   }
 
+  // Auto-reconnect WiFi if disconnected (attempt every 10 seconds)
+  static unsigned long lastWifiRetry = 0;
+  if (WiFi.status() != WL_CONNECTED && millis() - lastWifiRetry > 10000) {
+    lastWifiRetry = millis();
+    Serial.println("[WiFi] Reconnecting to: " + String(WIFI_SSID));
+    WiFi.reconnect();
+  }
+
   // Periodic Environmental Telemetry Reporting (every 4 seconds)
   // NOTE: readUltrasonicCm() takes up to 30ms if no echo, so we ONLY run it here
   // rather than every loop iteration. This frees loop() to poll RFID at ~100Hz!
@@ -264,16 +272,16 @@ void handleRfidTap() {
   cleanUid.toUpperCase();
 
   Serial.println(F("\n========================================================"));
-  Serial.println(F("💳 [RFID TAG SCANNED SUCCESSFULLY!]"));
+  Serial.println(F("💳 [RECEIVER RFID SCANNED!]"));
   Serial.printf ("   UID Size:           %d bytes\n", rfid.uid.size);
   Serial.println("   Raw HEX:            [ " + uidHex + "]");
   Serial.println("   Clean UID:          " + cleanUid);
   Serial.println("   Raw DEC:            [ " + uidDec + "]");
   Serial.printf ("   Target Delivery ID: #%d\n", currentDeliveryId);
   Serial.println(F("--------------------------------------------------------"));
-  Serial.println("   Transmitting Key 1 to MST Relay Server (" + String(RELAY_HOST) + ")...");
+  Serial.println("   Verifying Receiver Key 1 with MST Relay (" + String(RELAY_HOST) + ")...");
 
-  updateOled(("UID: " + cleanUid).c_str(), "Transmitting Key 1...");
+  updateOled(("UID: " + cleanUid).c_str(), "Verifying Receiver");
 
   // Post scan event to Relay Server
   if (WiFi.status() == WL_CONNECTED) {
@@ -289,25 +297,25 @@ void handleRfidTap() {
     int httpCode = http.POST(json);
     if (httpCode == 200) {
       String resp = http.getString();
-      Serial.println(F("✅ [Relay 200 OK] Scan Accepted! Key 1 Confirmed on MST Blockchain!"));
+      Serial.println(F("✅ [Relay 200 OK] Receiver Verified! Key 1 Confirmed on MST Blockchain!"));
       Serial.println("   Relay Response: " + resp);
       Serial.println(F("========================================================\n"));
       isKey1Confirmed = true;
-      updateOled("KEY 1 VERIFIED", "Awaiting Recipient");
+      updateOled("KEY 1 VERIFIED", "Receiver Confirmed");
     } else if (httpCode < 0) {
       Serial.printf("❌ [Relay Connection Error %d]: %s (Is relay running on %s?)\n",
                     httpCode, http.errorToString(httpCode).c_str(), RELAY_HOST);
       Serial.println(F("========================================================\n"));
       updateOled("RELAY OFFLINE", "Check Server IP/Port");
       delay(2000);
-      updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+      updateOled("AWAITING SCAN", "Receiver Tap Card");
     } else {
       String resp = http.getString();
       Serial.printf("❌ [Relay HTTP %d]: %s\n", httpCode, resp.c_str());
       Serial.println(F("========================================================\n"));
-      updateOled("SCAN REJECTED", "Check Geofence/UID");
+      updateOled("SCAN REJECTED", "Wrong Card / GPS");
       delay(2000);
-      updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+      updateOled("AWAITING SCAN", "Receiver Tap Card");
     }
     http.end();
   } else {
@@ -411,7 +419,7 @@ void syncDeliveryId() {
             updateOled("DELIVERY SYNCED",
                        ("ID: " + String(currentDeliveryId)).c_str());
             delay(500);
-            updateOled("AWAITING SCAN", "Hold RFID to Terminal");
+            updateOled("AWAITING SCAN", "Receiver Tap Card");
           }
         }
       }
@@ -423,16 +431,27 @@ void syncDeliveryId() {
 void connectWiFi() {
   Serial.print("[WiFi] Connecting to: ");
   Serial.println(WIFI_SSID);
+  updateOled("CONNECTING WIFI", WIFI_SSID);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   int tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries < 20) {
+  while (WiFi.status() != WL_CONNECTED && tries < 30) {
     delay(500);
     Serial.print(".");
     tries++;
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n[WiFi] Connected! IP: " + WiFi.localIP().toString());
+    updateOled("WIFI CONNECTED", WiFi.localIP().toString().c_str());
+    delay(1000);
   } else {
-    Serial.println("\n[WiFi] Running in standalone/offline mode.");
+    Serial.println("\n[WiFi] Could not connect. Running in standalone/offline mode.");
+    Serial.println("       Tip: On iPhone, ensure 'Maximize Compatibility' is turned ON in Settings > Personal Hotspot!");
+    updateOled("WIFI FAILED", "Check Hotspot");
+    delay(1500);
   }
 }

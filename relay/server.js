@@ -121,7 +121,7 @@ app.post("/api/terminal/arm-scanner", (req, res) => {
     source: null,
     error: null
   };
-  console.log(`[Relay] 📡 Scanner armed for Delivery #${activeDeliveryId}. Waiting for physical RFID card tap on RC522...`);
+  console.log(`[Relay] 📡 Scanner armed for Delivery #${activeDeliveryId}. Waiting for recipient physical RFID card tap on RC522...`);
   res.json({ status: "armed", deliveryId: activeDeliveryId });
 });
 
@@ -154,7 +154,7 @@ app.post("/api/terminal/scan", async (req, res) => {
     };
 
     console.log(`\n======================================================`);
-    console.log(`⭐ [RFID CARD TAP DETECTED] UID: ${cleanUid} | Source: ${isHardware ? 'PHYSICAL HARDWARE (RC522)' : 'MANUAL'}`);
+    console.log(`⭐ [RECEIVER RFID TAP DETECTED] UID: ${cleanUid} | Source: ${isHardware ? 'PHYSICAL HARDWARE (RC522)' : 'MANUAL'}`);
     console.log(`   Time: ${new Date().toLocaleTimeString()} | GPS: ${latitude || latestTelemetry.lat}, ${longitude || latestTelemetry.lon}`);
     console.log(`======================================================\n`);
 
@@ -237,7 +237,7 @@ app.post("/api/terminal/scan", async (req, res) => {
       onChain,
       txResult,
       hardwareScanState,
-      message: "Physical Terminal Scan (Key 1) verified and confirmed on-chain!"
+      message: "Receiver Physical Scan (Key 1) verified and confirmed on-chain!"
     });
   } catch (error) {
     console.error("[Scan Error]:", error);

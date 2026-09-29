@@ -399,15 +399,19 @@ export default function SenderPortal({ signer, account, balance, onConnect, onDe
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                RFID Tag UID
+                Recipient's RFID Card UID (Key 1)
               </label>
               <input
                 type="text"
                 className="input-field mono"
                 value={rfidUid}
                 onChange={(e) => setRfidUid(e.target.value)}
+                placeholder="Receiver's card UID..."
                 required
               />
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                The receiver will tap this physical RFID card at the Smart Terminal to verify receipt.
+              </div>
               {hardwareScannedCard && (
                 <div style={{
                   marginTop: '8px',
@@ -441,7 +445,7 @@ export default function SenderPortal({ signer, account, balance, onConnect, onDe
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    Use Card
+                    Assign to Receiver
                   </button>
                 </div>
               )}
@@ -511,7 +515,7 @@ export default function SenderPortal({ signer, account, balance, onConnect, onDe
           </div>
 
           <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            💡 <strong>Zero-Trust Multi-Sig:</strong> Escrow cannot be settled unless <strong>both</strong> the Terminal (Key 1 via RFID & GPS) and Recipient (Key 2 via BridgeKey) provide proof on the MST Blockchain.
+            💡 <strong>Zero-Trust Multi-Sig:</strong> Escrow cannot be settled unless <strong>both</strong> the Receiver's Physical Card (Key 1 via RFID tap & GPS) and Receiver's Wallet (Key 2 via BridgeKey) provide cryptographic proof on the MST Blockchain.
           </div>
         </div>
 

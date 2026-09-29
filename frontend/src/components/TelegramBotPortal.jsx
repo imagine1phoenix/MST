@@ -468,17 +468,17 @@ export default function TelegramBotPortal({ account }) {
               {testEventType === 'KEY1_VERIFIED' && (
                 testRole === 'sender' ? (
                   <>
-                    <div>💳 <strong>PARCEL ARRIVED AT LOCKER! (Delivery #{testDeliveryId})</strong></div>
-                    <div style={{ marginTop: '6px' }}>🏷️ <strong>Hardware RFID Scan:</strong> ✅ Verified (UID: <code>0x82</code>)</div>
+                    <div>💳 <strong>RECEIVER VERIFIED AT TERMINAL! (Delivery #{testDeliveryId})</strong></div>
+                    <div style={{ marginTop: '6px' }}>🏷️ <strong>Receiver RFID Scan:</strong> ✅ Verified (UID: <code>0x82</code>)</div>
                     <div>🛰️ <strong>Geofence Confirmation:</strong> ✅ Target GPS Match</div>
-                    <div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}><em>The recipient has been alerted to sign Key 2 and retrieve the package. Your 5% cashback will disburse immediately upon pickup.</em></div>
+                    <div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}><em>The recipient has tapped their card and is completing the Key 2 signature. Your 5% cashback will disburse immediately upon settlement.</em></div>
                   </>
                 ) : (
                   <>
-                    <div>🚨 <strong>YOUR PACKAGE HAS ARRIVED AT THE SMART TERMINAL!</strong></div>
-                    <div style={{ marginTop: '6px' }}>🔑 <strong>Key 1 (Terminal RFID):</strong> ✅ <strong>VERIFIED</strong></div>
-                    <div>🔒 <strong>Locker Door:</strong> LATCHED SHUT (Awaiting Key 2)</div>
-                    <div style={{ marginTop: '6px', color: 'var(--accent-cyan)' }}>👉 <strong>Action Required:</strong> Sign Key 2 on your Recipient Portal to pop open the locker door!</div>
+                    <div>🚨 <strong>YOUR RECEIVER RFID CARD HAS BEEN VERIFIED!</strong></div>
+                    <div style={{ marginTop: '6px' }}>🔑 <strong>Key 1 (Receiver RFID):</strong> ✅ <strong>VERIFIED</strong></div>
+                    <div>🔒 <strong>Status:</strong> Key 1 Confirmed (Awaiting Key 2 Signature)</div>
+                    <div style={{ marginTop: '6px', color: 'var(--accent-cyan)' }}>👉 <strong>Action Required:</strong> Sign Key 2 in your Recipient Portal to complete delivery!</div>
                   </>
                 )
               )}
