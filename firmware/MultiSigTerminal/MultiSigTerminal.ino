@@ -20,6 +20,7 @@
 #include <Adafruit_SSD1306.h>
 #include <DHT.h>
 #include <HTTPClient.h>
+#define MFRC522_SPICLOCK (1000000u) // 1 MHz clean SPI clock for jumper wires
 #include <MFRC522.h>
 #include <Newrick.h>
 #include <SPI.h>
@@ -114,20 +115,10 @@ void setup() {
   // 5. Initialize NEO-6M GPS on HardwareSerial 2
   gpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
-  // 6. Initialize RC522 RFID on Custom SPI Pins
-  Serial.println("\n[Terminal] Initializing MFRC522 RFID reader...");
+  // 6. Initialize RC522 RFID on Custom SPI Pins (CN2 Header)
+  Serial.println(F("\n[Terminal] Initializing MFRC522 RFID reader..."));
+  Serial.println(F("  SPI Configuration: SDA(SS)=3, RST=15, MISO=16, MOSI=17, SCK=18"));
   updateOled("INIT RC522...", "Connecting SPI");
-
-  // Hardware Reset pulse to RC522
-  pinMode(PIN_RFID_RST, OUTPUT);
-  digitalWrite(PIN_RFID_RST, LOW);
-  delay(10);
-  digitalWrite(PIN_RFID_RST, HIGH);
-  delay(50);
-
-  pinMode(PIN_RFID_SS, OUTPUT);
-  digitalWrite(PIN_RFID_SS, HIGH);
-  delay(10);
 
   SPI.begin(PIN_RFID_SCK, PIN_RFID_MISO, PIN_RFID_MOSI, PIN_RFID_SS);
   delay(50);
@@ -135,35 +126,44 @@ void setup() {
   rfid.PCD_Init();
   delay(50);
 
-  // Boost antenna gain to maximum (48dB) for best range & sensitivity
-  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+  // Set antenna gain to 38dB (RxGain_38dB) - optimal for close contact without receiver saturation
+  rfid.PCD_SetAntennaGain(rfid.RxGain_38dB);
+  rfid.PCD_AntennaOn(); // Explicitly power the 13.56MHz RF antenna driver
+  delay(20);
 
   byte rfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
-  Serial.printf("\n[RFID Diagnostic] MFRC522 Chip Version Register: 0x%02X\n", rfidVer);
+  byte txCtrl = rfid.PCD_ReadRegister(rfid.TxControlReg);
+  Serial.printf("[RFID Diagnostic] Version: 0x%02X | TxControl: 0x%02X (Antenna %s)\n",
+                rfidVer, txCtrl, ((txCtrl & 0x03) == 0x03) ? "ON (RF ACTIVE)" : "OFF (CHECK)");
 
   if (rfidVer == 0x91 || rfidVer == 0x92) {
-    Serial.println("[RFID Status] SUCCESS: RC522 communicates properly over SPI (v" + String(rfidVer == 0x92 ? "2.0" : "1.0") + ")");
+    Serial.println("✅ [RFID Status] SUCCESS: RC522 communicates properly over SPI (v" + String(rfidVer == 0x92 ? "2.0" : "1.0") + ")");
     updateOled("RC522: OK", "Reader Ready");
-    delay(1000);
-  } else if (rfidVer == 0x12) {
-    Serial.println("[RFID Status] SUCCESS: RC522 clone detected (0x12) - communication OK");
+    delay(800);
+  } else if (rfidVer == 0x82 || rfidVer == 0x88 || rfidVer == 0x12) {
+    Serial.printf("✅ [RFID Status] SUCCESS: RC522 clone detected (0x%02X) - ready to scan!\n", rfidVer);
     updateOled("RC522: OK", "Clone Ready");
-    delay(1000);
+    delay(800);
+  } else if (rfidVer != 0x00 && rfidVer != 0xFF) {
+    Serial.printf("✅ [RFID Status] RC522 responded with 0x%02X - ready to scan!\n", rfidVer);
+    updateOled("RC522: OK", "Reader Ready");
+    delay(800);
   } else {
     // Retry once with soft reset if chip was busy
     rfid.PCD_Reset();
     delay(50);
     rfid.PCD_Init();
     delay(50);
-    rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+    rfid.PCD_SetAntennaGain(rfid.RxGain_38dB);
+    rfid.PCD_AntennaOn();
     rfidVer = rfid.PCD_ReadRegister(rfid.VersionReg);
     Serial.printf("[RFID Diagnostic] Retry Version: 0x%02X\n", rfidVer);
-    if (rfidVer == 0x91 || rfidVer == 0x92 || rfidVer == 0x12) {
-      Serial.println("[RFID Status] SUCCESS: RC522 ready after reset!");
+    if (rfidVer != 0x00 && rfidVer != 0xFF) {
+      Serial.println(F("✅ [RFID Status] SUCCESS: RC522 ready after reset!"));
       updateOled("RC522: OK", "Reader Ready");
-      delay(1000);
+      delay(800);
     } else {
-      Serial.println("[RFID Warning] Could not read 0x91/0x92 from version reg. Check physical wiring.");
+      Serial.println(F("⚠️ [RFID Warning] Could not read valid version from register."));
       updateOled("RC522: CHECK WIRE", "Check 3.3V & GND");
       delay(1500);
     }
@@ -187,36 +187,52 @@ void loop() {
     hasGpsFix = true;
   }
 
-  // Check Ultrasonic distance
-  float distanceCm = readUltrasonicCm();
+  // Fast RFID Card Detection
+  // Dual detection: check both PICC_IsNewCardPresent() (REQA for idle cards)
+  // and PICC_WakeupA() (WUPA for halted or previously energized cards)
+  bool cardDetected = false;
+  if (rfid.PICC_IsNewCardPresent()) {
+    cardDetected = true;
+  } else {
+    byte bufferATQA[2];
+    byte bufferSize = sizeof(bufferATQA);
+    if (rfid.PICC_WakeupA(bufferATQA, &bufferSize) == MFRC522::STATUS_OK) {
+      cardDetected = true;
+    }
+  }
 
-  // Check for RFID card tap
-  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
-    Serial.println("\n[RFID] >>> RF field detected card! Reading UID...");
-    handleRfidTap();
-    rfid.PICC_HaltA();
-    rfid.PCD_StopCrypto1();
-    delay(500);
+  if (cardDetected) {
+    Serial.println(F("\n📡 [RFID DETECT] >>> Card entered RF field! Reading UID..."));
+    if (rfid.PICC_ReadCardSerial()) {
+      handleRfidTap();
+      rfid.PICC_HaltA();
+      rfid.PCD_StopCrypto1();
+      delay(800); // Debounce to prevent multiple immediate triggers
+    } else {
+      Serial.println(F("⚠️ [RFID Warning] Card detected in field, but reading serial bytes was incomplete. Hold card steady against the reader!"));
+    }
   }
 
   // Check onboard user button from STM32 motion controller (Newrick library)
   if (nr.buttonState > 0) {
-    Serial.println("\n[Button] Onboard user button pressed! Triggering manual "
-                   "status & telemetry sync...");
+    Serial.println("\n[Button] Onboard user button pressed! Triggering manual status & telemetry sync...");
     byte ver = rfid.PCD_ReadRegister(rfid.VersionReg);
-    Serial.printf("[RFID Health Check] Version Reg: 0x%02X %s\n", ver,
-                  (ver == 0x92 || ver == 0x91 || ver == 0x12)
-                      ? "(OK)"
-                      : "(FAILED - CHECK WIRING)");
+    byte tx = rfid.PCD_ReadRegister(rfid.TxControlReg);
+    Serial.printf("[RFID Health Check] Version: 0x%02X | TxControl: 0x%02X (Antenna %s)\n",
+                  ver, tx, ((tx & 0x03) == 0x03) ? "ON" : "OFF");
     updateOled("SYNCING STATUS", "Checking Blockchain...");
     pollDeliveryStatus();
+    float distanceCm = readUltrasonicCm();
     sendTelemetry(distanceCm);
     delay(400); // Simple debounce
   }
 
   // Periodic Environmental Telemetry Reporting (every 4 seconds)
+  // NOTE: readUltrasonicCm() takes up to 30ms if no echo, so we ONLY run it here
+  // rather than every loop iteration. This frees loop() to poll RFID at ~100Hz!
   if (millis() - lastTelemetryTime > 4000) {
     lastTelemetryTime = millis();
+    float distanceCm = readUltrasonicCm();
     syncDeliveryId();
     sendTelemetry(distanceCm);
   }
@@ -227,7 +243,7 @@ void loop() {
     pollDeliveryStatus();
   }
 
-  delay(50);
+  delay(10);
 }
 
 // --- Sensor Read Functions ---
@@ -246,16 +262,33 @@ float readUltrasonicCm() {
 }
 
 void handleRfidTap() {
-  String uidStr = "";
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    if (rfid.uid.uidByte[i] < 0x10)
-      uidStr += "0";
-    uidStr += String(rfid.uid.uidByte[i], HEX);
-  }
-  uidStr.toUpperCase();
-  Serial.println("\n[RFID] Scanned UID: " + uidStr);
+  String uidHex = "";
+  String cleanUid = "";
+  String uidDec = "";
 
-  updateOled("RFID DETECTED", "Transmitting Key 1...");
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) {
+      uidHex += "0";
+      cleanUid += "0";
+    }
+    uidHex += String(rfid.uid.uidByte[i], HEX) + " ";
+    cleanUid += String(rfid.uid.uidByte[i], HEX);
+    uidDec += String(rfid.uid.uidByte[i], DEC) + " ";
+  }
+  uidHex.toUpperCase();
+  cleanUid.toUpperCase();
+
+  Serial.println(F("\n========================================================"));
+  Serial.println(F("💳 [RFID TAG SCANNED SUCCESSFULLY!]"));
+  Serial.printf ("   UID Size:           %d bytes\n", rfid.uid.size);
+  Serial.println("   Raw HEX:            [ " + uidHex + "]");
+  Serial.println("   Clean UID:          " + cleanUid);
+  Serial.println("   Raw DEC:            [ " + uidDec + "]");
+  Serial.printf ("   Target Delivery ID: #%d\n", currentDeliveryId);
+  Serial.println(F("--------------------------------------------------------"));
+  Serial.println("   Transmitting Key 1 to MST Relay Server (" + String(RELAY_HOST) + ")...");
+
+  updateOled(("UID: " + cleanUid).c_str(), "Transmitting Key 1...");
 
   // Post scan event to Relay Server
   if (WiFi.status() == WL_CONNECTED) {
@@ -265,23 +298,30 @@ void handleRfidTap() {
 
     String json =
         "{\"deliveryId\":" + String(currentDeliveryId) + ",\"rfidUid\":\"" +
-        uidStr + "\"" + ",\"latitude\":" + String(currentLat, 6) +
+        cleanUid + "\"" + ",\"latitude\":" + String(currentLat, 6) +
         ",\"longitude\":" + String(currentLon, 6) + ",\"source\":\"hardware\"}";
 
     int httpCode = http.POST(json);
     if (httpCode == 200) {
-      Serial.println(
-          "[Relay] Scan accepted! Key 1 confirmed on MST Blockchain.");
+      String resp = http.getString();
+      Serial.println(F("✅ [Relay 200 OK] Scan Accepted! Key 1 Confirmed on MST Blockchain!"));
+      Serial.println("   Relay Response: " + resp);
+      Serial.println(F("========================================================\n"));
       isKey1Confirmed = true;
       updateOled("KEY 1 VERIFIED", "Awaiting Recipient");
     } else {
       String resp = http.getString();
-      Serial.println("[Relay Error " + String(httpCode) + "]: " + resp);
+      Serial.printf("❌ [Relay Error %d]: %s\n", httpCode, resp.c_str());
+      Serial.println(F("========================================================\n"));
       updateOled("SCAN REJECTED", "Check Geofence/UID");
       delay(2000);
       updateOled("AWAITING SCAN", "Hold RFID to Terminal");
     }
     http.end();
+  } else {
+    Serial.println(F("⚠️ [WiFi Error] WiFi not connected! Cannot reach relay server."));
+    Serial.println(F("========================================================\n"));
+    updateOled("SCAN CACHED", "WiFi Offline");
   }
 }
 
@@ -408,7 +448,7 @@ void connectWiFi() {
   Serial.println(WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   int tries = 0;
-  while (WiFi.status() != WL_CONNECTED && tries < 20) {/Users/pritthacker/MST/firmware/MultiSigTerminal/MultiSigTerminal.ino
+  while (WiFi.status() != WL_CONNECTED && tries < 20) {
     delay(500);
     Serial.print(".");
     tries++;
