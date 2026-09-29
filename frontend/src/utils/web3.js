@@ -8,16 +8,29 @@ export const MST_EXPLORER_URL = import.meta.env.VITE_MST_EXPLORER_URL || "https:
 export const MST_CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || contractConfig.contractAddress;
 export const RELAY_API_URL = (import.meta.env.VITE_RELAY_API_URL || "http://localhost:5001").replace(/\/$/, "");
 
-// Retry helper with exponential backoff for RPC rate limits (429)
-async function retryRpc(fn, maxRetries = 3, baseDelay = 800) {
+// Helper to find the active Ethereum / BridgeKey provider
+export function getEthereumProvider() {
+  if (typeof window === "undefined") return null;
+  // If BridgeKey is directly injected as window.bridgekey
+  if (window.bridgekey) return window.bridgekey;
+  // If multiple extensions are installed (EIP-6963 / multi-provider)
+  if (window.ethereum?.providers && Array.isArray(window.ethereum.providers)) {
+    const bk = window.ethereum.providers.find(p => p.isBridgeKey);
+    if (bk) return bk;
+    return window.ethereum.providers[0];
+  }
+  return window.ethereum || null;
+}
+
+// Retry helper with exponential backoff for RPC calls
+async function retryRpc(fn, maxRetries = 2, baseDelay = 600) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err) {
       const is429 = err?.message?.includes('429') || 
                     err?.info?.error?.message?.includes('429') ||
-                    err?.error?.message?.includes('429') ||
-                    err?.code === -32603;
+                    err?.error?.message?.includes('429');
       if (is429 && attempt < maxRetries) {
         await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
         continue;
@@ -40,36 +53,53 @@ export const MST_NETWORK_PARAMS = {
 };
 
 export async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
-    throw new Error("BridgeKey (or MetaMask) wallet not detected. Please install the BridgeKey extension.");
+  const eth = getEthereumProvider();
+  if (!eth) {
+    throw new Error("BridgeKey (or Web3) wallet not detected in your browser. Please ensure your BridgeKey extension is installed and enabled.");
   }
 
   try {
-    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-    if (!accounts || accounts.length === 0) {
-      throw new Error("No accounts found in wallet");
+    let accounts = [];
+    try {
+      accounts = await eth.request({ method: "eth_requestAccounts" });
+    } catch (reqErr) {
+      if (reqErr.code === 4001 || reqErr.message?.includes("User rejected") || reqErr.message?.includes("rejected")) {
+        throw new Error("Connection request was cancelled in BridgeKey.");
+      }
+      if (reqErr.code === -32002) {
+        throw new Error("Connection request is already pending. Please click the BridgeKey extension icon in your browser to approve.");
+      }
+      throw reqErr;
     }
 
-    // Ensure user is on MST Testnet
-    await ensureMstNetwork();
+    if (!accounts || accounts.length === 0) {
+      throw new Error("No accounts found in BridgeKey. Please unlock your wallet and select an account.");
+    }
 
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    // Attempt network switch, but NEVER abort connection if switch is declined or unsupported
+    try {
+      await ensureMstNetwork();
+    } catch (netErr) {
+      console.warn("MST network check non-fatal warning:", netErr?.message || netErr);
+    }
+
+    // Initialize BrowserProvider with "any" to avoid network change freezes
+    const provider = new ethers.BrowserProvider(eth, "any");
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
     
-    // Balance fetch is best-effort — never break connection over it
+    // Balance fetch is best-effort — never break wallet connection over balance read failure
     let balance = "0.0000";
     try {
       const balanceRaw = await retryRpc(() => provider.getBalance(address));
       balance = Number(ethers.formatEther(balanceRaw)).toFixed(4);
-    } catch (balErr) {
+    } catch (_) {
       try {
         const directProvider = new ethers.JsonRpcProvider(MST_RPC_URL);
         const balanceRaw = await retryRpc(() => directProvider.getBalance(address));
         balance = Number(ethers.formatEther(balanceRaw)).toFixed(4);
-      } catch (_) {
-        // Balance unavailable due to RPC rate limits — show 0 and continue
-        console.warn("Balance fetch failed (RPC rate limit). Wallet connected with balance shown as 0.");
+      } catch (directErr) {
+        console.warn("Balance fetch skipped (RPC rate limit or offline). Wallet connected successfully.");
       }
     }
 
@@ -80,53 +110,61 @@ export async function connectWallet() {
       balance
     };
   } catch (err) {
-    if (
-      err.message?.includes("BridgeKey was updated") ||
-      err.message?.includes("could not coalesce error") ||
-      err.code === -32603 ||
-      err.info?.error?.code === -32603
-    ) {
-      // Check if this is specifically a 429 rate limit
-      const is429 = err.message?.includes('429') || err.info?.error?.message?.includes('429');
-      if (is429) {
-        throw new Error("MST Testnet RPC is temporarily rate-limited. Please wait a few seconds and try connecting again.");
-      }
-      throw new Error("BridgeKey extension was recently updated or reloaded. Please refresh this page (press Cmd+R or F5) and click Connect Wallet again.");
+    if (err.message?.includes("Extension context invalidated")) {
+      throw new Error("BridgeKey extension was reloaded. Please refresh the page (press Cmd+R or F5) and reconnect.");
+    }
+    if (err.message?.includes("429")) {
+      throw new Error("MST Testnet RPC is temporarily rate-limited. Please wait 10 seconds and try again.");
     }
     throw err;
   }
 }
 
 export async function ensureMstNetwork() {
-  if (!window.ethereum) return;
+  const eth = getEthereumProvider();
+  if (!eth) return false;
   
   let currentChainId;
   try {
-    currentChainId = await window.ethereum.request({ method: "eth_chainId" });
+    currentChainId = await eth.request({ method: "eth_chainId" });
   } catch (err) {
-    // If we can't even read the chain ID, skip network check (wallet will prompt later)
-    console.warn("Could not read chain ID, skipping network check:", err.message);
-    return;
+    console.warn("Could not read eth_chainId:", err?.message || err);
+    return false;
   }
 
-  if (currentChainId !== MST_CHAIN_ID_HEX) {
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: MST_CHAIN_ID_HEX }]
-      });
-    } catch (switchError) {
-      // Code 4902 means the chain has not been added yet
-      if (switchError.code === 4902 || switchError.message?.includes("Unrecognized chain")) {
-        await window.ethereum.request({
+  // Already on MST Testnet
+  if (currentChainId && currentChainId.toLowerCase() === MST_CHAIN_ID_HEX.toLowerCase()) {
+    return true;
+  }
+
+  try {
+    await eth.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: MST_CHAIN_ID_HEX }]
+    });
+    return true;
+  } catch (switchError) {
+    // 4902 indicates chain has not been added yet
+    const isUnrecognized = switchError.code === 4902 || 
+                           switchError.code === -32603 ||
+                           switchError.message?.toLowerCase().includes("unrecognized") ||
+                           switchError.message?.toLowerCase().includes("not added");
+    if (isUnrecognized) {
+      try {
+        await eth.request({
           method: "wallet_addEthereumChain",
           params: [MST_NETWORK_PARAMS]
         });
-      } else {
-        throw switchError;
+        return true;
+      } catch (addError) {
+        console.warn("Could not add MST Testnet to wallet:", addError?.message || addError);
       }
+    } else {
+      console.warn("Could not switch to MST Testnet:", switchError?.message || switchError);
     }
   }
+
+  return false;
 }
 
 export function getContractInstance(signerOrProvider) {

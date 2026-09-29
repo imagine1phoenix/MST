@@ -3,8 +3,8 @@ import Navbar from './components/Navbar';
 import SenderPortal from './components/SenderPortal';
 import RecipientPortal from './components/RecipientPortal';
 import TerminalMonitor from './components/TerminalMonitor';
-import { Package, KeyRound, Cpu, FileText, ExternalLink, ShieldCheck } from 'lucide-react';
-import { connectWallet } from './utils/web3';
+import { Package, KeyRound, Cpu, FileText, ExternalLink, ShieldCheck, AlertCircle, X, RefreshCw } from 'lucide-react';
+import { connectWallet, getEthereumProvider } from './utils/web3';
 import contractConfig from './config/contract.json';
 
 export default function App() {
@@ -13,41 +13,53 @@ export default function App() {
   const [balance, setBalance] = useState('0.0000');
   const [signer, setSigner] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectError, setConnectError] = useState(null);
   const [activeDeliveryId, setActiveDeliveryId] = useState('1');
 
-  // Try auto-connecting if window.ethereum has accounts
+  // Try auto-connecting if wallet provider already has authorized accounts
   useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.request({ method: 'eth_accounts' })
+    const eth = getEthereumProvider();
+    if (eth) {
+      eth.request({ method: 'eth_accounts' })
         .then(async (accounts) => {
           if (accounts && accounts.length > 0) {
-            handleConnect();
+            handleConnect(true); // silent auto-connect
           }
         })
-        .catch(console.error);
+        .catch(() => {});
 
       // Listen to account changes
-      window.ethereum.on('accountsChanged', (accounts) => {
+      const handleAccountsChanged = (accounts) => {
         if (accounts.length > 0) {
-          handleConnect();
+          handleConnect(true);
         } else {
           setAccount(null);
           setSigner(null);
           setBalance('0.0000');
         }
-      });
+      };
+
+      eth.on?.('accountsChanged', handleAccountsChanged);
+      return () => {
+        eth.removeListener?.('accountsChanged', handleAccountsChanged);
+      };
     }
   }, []);
 
-  const handleConnect = async () => {
+  const handleConnect = async (isAuto = false) => {
     try {
       setIsConnecting(true);
+      if (!isAuto) setConnectError(null);
       const data = await connectWallet();
       setAccount(data.address);
       setBalance(data.balance);
       setSigner(data.signer);
+      setConnectError(null);
     } catch (err) {
       console.warn("Wallet connect:", err.message);
+      if (!isAuto) {
+        setConnectError(err.message || "Failed to connect BridgeKey wallet.");
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -69,6 +81,45 @@ export default function App() {
 
       {/* Main Container */}
       <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px', width: '100%', flex: 1 }}>
+        {/* BridgeKey Connection Alert */}
+        {connectError && (
+          <div style={{
+            marginBottom: '24px',
+            padding: '14px 20px',
+            borderRadius: '12px',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <AlertCircle size={20} color="var(--accent-red)" style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: '0.88rem', color: '#fca5a5' }}>
+                <strong style={{ color: '#fff' }}>BridgeKey Wallet:</strong> {connectError}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <button
+                onClick={() => handleConnect(false)}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={13} />
+                Retry Connect
+              </button>
+              <button
+                onClick={() => setConnectError(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
+                title="Dismiss"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Hero Banner */}
         <div style={{ marginBottom: '32px', textAlign: 'center' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: 'rgba(0, 242, 254, 0.08)', borderRadius: '9999px', border: '1px solid var(--border-accent)', marginBottom: '14px' }}>
