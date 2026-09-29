@@ -20,53 +20,54 @@ export default function Navbar({ account, balance, onConnect, isConnecting, cont
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
+        flexWrap: 'nowrap',
+        gap: '20px'
       }}>
         {/* Brand / Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
             background: 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 25px rgba(0, 242, 254, 0.5)'
+            boxShadow: '0 0 20px rgba(0, 242, 254, 0.45)',
+            flexShrink: 0
           }}>
-            <Cpu size={24} color="#000000" />
+            <Cpu size={22} color="#000000" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+              <span style={{ fontSize: '1.18rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff', whiteSpace: 'nowrap' }}>
                 MST <span style={{ color: 'var(--accent-cyan)', textShadow: '0 0 15px rgba(0, 242, 254, 0.6)' }}>SmartTerminal</span>
               </span>
-              <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
+              <span className="badge badge-cyan" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
                 Multi-Sig 2.0
               </span>
             </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              IoT Geofenced Escrow • MST Blockchain × Robotics
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              IoT Geofenced Escrow • Zero-Trust Delivery
             </p>
           </div>
         </div>
 
         {/* Network & Wallet Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           {/* MST Testnet Badge */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid var(--border-color)',
-            padding: '8px 14px',
-            borderRadius: '10px'
+            background: 'rgba(0, 242, 254, 0.05)',
+            border: '1px solid rgba(0, 242, 254, 0.2)',
+            padding: '7px 12px',
+            borderRadius: '10px',
+            whiteSpace: 'nowrap'
           }}>
             <span className="status-dot status-dot-active"></span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>MST Testnet</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(ID: {MST_CHAIN_ID_DECIMAL})</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>MST Testnet</span>
           </div>
 
           {/* Faucet Link */}
@@ -75,20 +76,20 @@ export default function Navbar({ account, balance, onConnect, isConnecting, cont
             target="_blank"
             rel="noreferrer"
             className="btn-secondary"
-            style={{ textDecoration: 'none', padding: '8px 14px', fontSize: '0.82rem' }}
+            style={{ textDecoration: 'none', padding: '7px 12px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
           >
-            <span>Claim $MSTC Faucet</span>
-            <ExternalLink size={14} />
+            <span>Faucet</span>
+            <ExternalLink size={13} />
           </a>
 
           {/* Telegram Bot Alerts Link */}
           <button
             onClick={onOpenTelegram}
             className="btn-secondary"
-            style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '7px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
             title="Configure & Test Telegram Bot Notifications"
           >
-            <Send size={14} color="var(--accent-cyan)" />
+            <Send size={13} color="var(--accent-cyan)" />
             <span>Telegram Bot</span>
           </button>
 

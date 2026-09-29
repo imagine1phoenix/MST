@@ -144,12 +144,6 @@ export default function App() {
 
         {/* Hero Banner */}
         <div style={{ marginBottom: '32px', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: 'rgba(0, 242, 254, 0.08)', borderRadius: '9999px', border: '1px solid var(--border-accent)', marginBottom: '14px' }}>
-            <ShieldCheck size={16} color="var(--accent-cyan)" />
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>
-              MST Blockchain Buildathon × Robotics Track
-            </span>
-          </div>
           <h1 style={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '12px' }}>
             Zero-Trust Smart Delivery Terminal
           </h1>
@@ -158,61 +152,141 @@ export default function App() {
           </p>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Unified Single Row */}
         <div style={{
           display: 'flex',
           justifyContent: 'center',
-          gap: '12px',
           marginBottom: '32px',
-          flexWrap: 'wrap'
+          width: '100%',
+          overflowX: 'auto',
+          paddingBottom: '6px'
         }}>
-          <button
-            onClick={() => setActiveTab('sender')}
-            className={activeTab === 'sender' ? 'btn-primary' : 'btn-secondary'}
-          >
-            <Package size={18} />
-            <span>1. Sender Escrow Portal</span>
-          </button>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            background: 'rgba(2, 8, 14, 0.92)',
+            border: '1px solid rgba(0, 242, 254, 0.22)',
+            padding: '5px',
+            borderRadius: '16px',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(0, 242, 254, 0.15)',
+            gap: '6px',
+            flexWrap: 'nowrap'
+          }}>
+            <button
+              onClick={() => setActiveTab('sender')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '9px 16px',
+                borderRadius: '11px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'sender' ? 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)' : 'transparent',
+                color: activeTab === 'sender' ? '#000000' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'sender' ? '0 0 16px rgba(0, 242, 254, 0.45)' : 'none'
+              }}
+            >
+              <Package size={16} />
+              <span>1. Sender Escrow</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('recipient')}
-            className={activeTab === 'recipient' ? 'btn-primary' : 'btn-secondary'}
-          >
-            <KeyRound size={18} />
-            <span>2. Recipient BridgeKey Sign</span>
-          </button>
+            <button
+              onClick={() => setActiveTab('recipient')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '9px 16px',
+                borderRadius: '11px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'recipient' ? 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)' : 'transparent',
+                color: activeTab === 'recipient' ? '#000000' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'recipient' ? '0 0 16px rgba(0, 242, 254, 0.45)' : 'none'
+              }}
+            >
+              <KeyRound size={16} />
+              <span>2. Recipient Sign</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('terminal')}
-            className={activeTab === 'terminal' ? 'btn-primary' : 'btn-secondary'}
-          >
-            <Cpu size={18} />
-            <span>3. IoT Robotics Hub & Sensors</span>
-          </button>
+            <button
+              onClick={() => setActiveTab('terminal')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '9px 16px',
+                borderRadius: '11px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'terminal' ? 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)' : 'transparent',
+                color: activeTab === 'terminal' ? '#000000' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'terminal' ? '0 0 16px rgba(0, 242, 254, 0.45)' : 'none'
+              }}
+            >
+              <Cpu size={16} />
+              <span>3. IoT Terminal</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('docs')}
-            className={activeTab === 'docs' ? 'btn-primary' : 'btn-secondary'}
-          >
-            <FileText size={18} />
-            <span>4. Verification & MSTScan</span>
-          </button>
+            <button
+              onClick={() => setActiveTab('docs')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '9px 16px',
+                borderRadius: '11px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'docs' ? 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)' : 'transparent',
+                color: activeTab === 'docs' ? '#000000' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'docs' ? '0 0 16px rgba(0, 242, 254, 0.45)' : 'none'
+              }}
+            >
+              <FileText size={16} />
+              <span>4. MSTScan Audit</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('telegram')}
-            className={activeTab === 'telegram' ? 'btn-primary' : 'btn-secondary'}
-            style={{ position: 'relative' }}
-          >
-            <Send size={18} color={activeTab === 'telegram' ? '#050b14' : 'var(--accent-cyan)'} />
-            <span>5. 🤖 Telegram Alerts</span>
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: 'var(--accent-cyan)',
-              boxShadow: '0 0 8px var(--accent-cyan)'
-            }}></span>
-          </button>
+            <button
+              onClick={() => setActiveTab('telegram')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '9px 16px',
+                borderRadius: '11px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'telegram' ? 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)' : 'transparent',
+                color: activeTab === 'telegram' ? '#000000' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'telegram' ? '0 0 16px rgba(0, 242, 254, 0.45)' : 'none'
+              }}
+            >
+              <Send size={15} color={activeTab === 'telegram' ? '#000000' : 'var(--accent-cyan)'} />
+              <span>5. Telegram Alerts</span>
+            </button>
+          </div>
         </div>
 
         {/* Tab Contents */}
