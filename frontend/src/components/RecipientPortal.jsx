@@ -95,6 +95,16 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
       return;
     }
 
+    // Pre-check: warn if connected wallet doesn't match designated recipient
+    if (delivery?.recipient && account && 
+        delivery.recipient.toLowerCase() !== account.toLowerCase()) {
+      setStatusMessage({
+        type: 'error',
+        text: `Wallet mismatch! This delivery's recipient is ${formatAddress(delivery.recipient)}, but you're connected as ${formatAddress(account)}. Switch to the correct BridgeKey wallet to sign Key 2.`
+      });
+      return;
+    }
+
     try {
       setIsSigning(true);
       setStatusMessage({ type: 'info', text: 'Prompting BridgeKey wallet signature for Key 2...' });
@@ -118,7 +128,7 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
         return;
       }
 
-      const tx = await contract.recipientConfirm(deliveryId);
+      const tx = await contract.recipientConfirm(deliveryId, { gasLimit: 200000 });
       setStatusMessage({ type: 'info', text: `Transaction submitted: ${tx.hash}. Awaiting block confirmation...` });
       await tx.wait();
 
@@ -132,9 +142,19 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
       await fetchDelivery(deliveryId);
     } catch (err) {
       console.error(err);
+      let errMsg = err.reason || err.message || 'Signature rejected or failed';
+      if (err.code === 'CALL_EXCEPTION' || errMsg.includes('CALL_EXCEPTION') || errMsg.includes('missing revert data')) {
+        errMsg = 'Transaction would revert on-chain. This usually means: (1) your wallet is not the designated recipient for this delivery, (2) Key 2 was already confirmed, or (3) the delivery doesn\'t exist. Check the Delivery Manifest to verify your wallet matches the Recipient address.';
+      } else if (err.code === 'ACTION_REJECTED' || errMsg.includes('user rejected')) {
+        errMsg = 'Transaction was rejected in your wallet.';
+      } else if (errMsg.includes('429')) {
+        errMsg = 'MST Testnet RPC is rate-limited. Please wait a few seconds and try again.';
+      } else if (errMsg.includes('could not coalesce')) {
+        errMsg = 'RPC connection issue. Please refresh the page and try again.';
+      }
       setStatusMessage({
         type: 'error',
-        text: err.reason || err.message || 'Signature rejected or failed'
+        text: errMsg
       });
     } finally {
       setIsSigning(false);
@@ -142,9 +162,35 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
   };
 
   const isSettled = delivery?.status === 3 || (delivery?.terminalConfirmed && delivery?.recipientConfirmed);
+  const walletMismatch = delivery?.recipient && account && 
+    delivery.recipient.toLowerCase() !== account.toLowerCase();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Wallet Mismatch Warning */}
+      {walletMismatch && (
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: '12px',
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          fontSize: '0.88rem'
+        }}>
+          <AlertTriangle size={20} color="var(--accent-amber)" style={{ flexShrink: 0 }} />
+          <div>
+            <strong style={{ color: 'var(--accent-amber)' }}>Wallet Mismatch:</strong>{' '}
+            <span style={{ color: 'var(--text-secondary)' }}>
+              You're connected as <code className="mono" style={{ color: 'var(--accent-cyan)' }}>{formatAddress(account)}</code>, 
+              but this delivery's recipient is <code className="mono" style={{ color: 'var(--accent-amber)' }}>{formatAddress(delivery.recipient)}</code>. 
+              Switch wallets in BridgeKey to sign Key 2.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Lookup Bar */}
       <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
