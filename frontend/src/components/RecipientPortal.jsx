@@ -420,6 +420,18 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
                 <span className="mono" style={{ fontWeight: 600 }}>{delivery.escrowAmount} $MSTC</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
+                <span style={{ color: '#10b981' }}>Courier Payout (95%):</span>
+                <span className="mono" style={{ fontWeight: 600, color: '#10b981' }}>
+                  {delivery.courierPayout || (parseFloat(delivery.escrowAmount) * 0.95).toFixed(4)} $MSTC
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--accent-cyan)' }}>Sender Cashback (5%):</span>
+                <span className="mono" style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>
+                  +{delivery.cashbackAmount || (parseFloat(delivery.escrowAmount) * 0.05).toFixed(4)} $MSTC
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Target GPS:</span>
                 <span className="mono">{delivery.targetLat}, {delivery.targetLon}</span>
               </div>
@@ -433,6 +445,50 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
                   {delivery.unlockDoor ? '🔓 UNLOCKED' : '🔒 LOCKED'}
                 </span>
               </div>
+
+              {/* Settled Cashback & Escrow Receipt Card */}
+              {isSettled && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(0, 242, 254, 0.06)',
+                  border: '1px solid rgba(0, 242, 254, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle2 size={18} color="var(--accent-cyan)" />
+                    <strong style={{ color: 'var(--accent-cyan)', fontSize: '0.88rem' }}>
+                      Escrow Settled & Cashback Disbursed!
+                    </strong>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                    The smart contract transferred <strong>+{delivery.cashbackAmount || (parseFloat(delivery.escrowAmount) * 0.05).toFixed(4)} $MSTC</strong> cashback directly to the sender wallet.
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.4', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '6px' }}>
+                    💡 <em>EVM internal transfers credit directly to your total $MSTC balance without generating a separate external transaction record in your wallet history.</em>
+                  </div>
+                  <a
+                    href={`https://testnet.mstscan.com/address/${delivery.sender}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: 'var(--accent-cyan)',
+                      fontSize: '0.75rem',
+                      marginTop: '2px',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <span>View Internal Txns on MSTScan</span>
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ color: 'var(--text-muted)' }}>Loading delivery details...</div>
