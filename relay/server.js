@@ -450,9 +450,9 @@ function startBlockchainMonitor() {
   }, 10000);
 }
 
-app.listen(PORT, async () => {
+app.listen(PORT, "0.0.0.0", async () => {
   console.log("=================================================");
-  console.log(` 🚀 MST Smart Terminal Relay running on port ${PORT}`);
+  console.log(` 🚀 MST Smart Terminal Relay running on port ${PORT} (0.0.0.0:${PORT})`);
   console.log(`    Network: MST Testnet (Chain ID: 91562037)`);
   console.log(`    Terminal Signer: ${contractService.terminalWallet.address}`);
   console.log("=================================================");

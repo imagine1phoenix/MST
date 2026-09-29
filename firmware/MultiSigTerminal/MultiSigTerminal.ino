@@ -297,9 +297,16 @@ void handleRfidTap() {
       Serial.println(F("========================================================\n"));
       isKey1Confirmed = true;
       updateOled("KEY 1 VERIFIED", "Awaiting Recipient");
+    } else if (httpCode < 0) {
+      Serial.printf("❌ [Relay Connection Error %d]: %s (Is relay running on %s?)\n",
+                    httpCode, http.errorToString(httpCode).c_str(), RELAY_HOST);
+      Serial.println(F("========================================================\n"));
+      updateOled("RELAY OFFLINE", "Check Server IP/Port");
+      delay(2000);
+      updateOled("AWAITING SCAN", "Hold RFID to Terminal");
     } else {
       String resp = http.getString();
-      Serial.printf("❌ [Relay Error %d]: %s\n", httpCode, resp.c_str());
+      Serial.printf("❌ [Relay HTTP %d]: %s\n", httpCode, resp.c_str());
       Serial.println(F("========================================================\n"));
       updateOled("SCAN REJECTED", "Check Geofence/UID");
       delay(2000);
