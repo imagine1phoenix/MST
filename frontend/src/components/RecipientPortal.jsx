@@ -18,6 +18,14 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
     }
   }, [activeDeliveryId]);
 
+  // Auto-poll delivery status every 3 seconds for live Key 1 / Key 2 updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDelivery(deliveryId);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [deliveryId]);
+
   const fetchDelivery = async (idToFetch) => {
     try {
       setIsLoading(true);

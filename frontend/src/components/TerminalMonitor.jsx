@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Radio, Thermometer, Droplets, Wind, Ruler, MapPin, Lock, Unlock, Zap, CheckCircle2, AlertTriangle, ExternalLink, Battery } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Radio, Thermometer, Droplets, Wind, Ruler, MapPin, Lock, Unlock, Zap, CheckCircle2, AlertTriangle, ExternalLink, Battery, Activity } from 'lucide-react';
 import { PRESETS } from './SenderPortal';
 import { RELAY_API_URL } from '../utils/web3';
 
@@ -25,6 +25,8 @@ export default function TerminalMonitor({ activeDeliveryId }) {
   const [isDoorUnlocked, setIsDoorUnlocked] = useState(false);
   const [hardwareScanState, setHardwareScanState] = useState(null);
   const [showManualOverride, setShowManualOverride] = useState(false);
+  const [scanEvents, setScanEvents] = useState([]);
+  const prevScanRef = useRef(null);
 
   // Arm scanner when deliveryId changes
   useEffect(() => {
@@ -50,6 +52,20 @@ export default function TerminalMonitor({ activeDeliveryId }) {
           }
           if (data.hardwareScanState) {
             setHardwareScanState(data.hardwareScanState);
+            // Track new scan events for live feed
+            if (data.hardwareScanState.scannedCardUid && 
+                data.hardwareScanState.scannedAt &&
+                data.hardwareScanState.scannedAt !== prevScanRef.current) {
+              prevScanRef.current = data.hardwareScanState.scannedAt;
+              setScanEvents(prev => [{
+                uid: data.hardwareScanState.scannedCardUid,
+                time: new Date(data.hardwareScanState.scannedAt).toLocaleTimeString(),
+                source: data.hardwareScanState.source || 'hardware',
+                confirmed: data.hardwareScanState.confirmedOnChain,
+                txHash: data.hardwareScanState.txHash,
+                deliveryId: data.hardwareScanState.deliveryId
+              }, ...prev].slice(0, 10));
+            }
           }
         }
       } catch (_) {
@@ -471,24 +487,24 @@ export default function TerminalMonitor({ activeDeliveryId }) {
               <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
                 <th style={{ padding: '8px' }}>Sensor</th>
                 <th style={{ padding: '8px' }}>Pin / Protocol</th>
-                <th style={{ padding: '8px' }}>ESP32 GPIO</th>
+                <th style={{ padding: '8px' }}>ESP32-S3 GPIO</th>
               </tr>
             </thead>
             <tbody>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <td style={{ padding: '8px' }}>RC522 RFID</td>
-                <td style={{ padding: '8px' }}>SPI (SDA, SCK, MOSI, MISO)</td>
-                <td style={{ padding: '8px' }} className="mono">10, 12, 11, 13</td>
+                <td style={{ padding: '8px' }}>RC522 RFID (CN2)</td>
+                <td style={{ padding: '8px' }}>SPI (SS, RST, MISO, MOSI, SCK)</td>
+                <td style={{ padding: '8px' }} className="mono">3, 15, 16, 17, 18</td>
               </tr>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <td style={{ padding: '8px' }}>NEO-6M GPS</td>
+                <td style={{ padding: '8px' }}>HC-SR04 Ultrasonic (CN9)</td>
+                <td style={{ padding: '8px' }}>Trig / Echo</td>
+                <td style={{ padding: '8px' }} className="mono">GPIO 10 / 11</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <td style={{ padding: '8px' }}>NEO-6M GPS (CN10)</td>
                 <td style={{ padding: '8px' }}>UART RX / TX</td>
-                <td style={{ padding: '8px' }} className="mono">GPIO 17 / 18</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <td style={{ padding: '8px' }}>HC-SR04 Ultrasonic</td>
-                <td style={{ padding: '8px' }}>Trig / Echo (3.3V div)</td>
-                <td style={{ padding: '8px' }} className="mono">GPIO 15 / 16</td>
+                <td style={{ padding: '8px' }} className="mono">GPIO 12 / 13</td>
               </tr>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                 <td style={{ padding: '8px' }}>DHT22 Temp/Humidity</td>
@@ -501,12 +517,47 @@ export default function TerminalMonitor({ activeDeliveryId }) {
                 <td style={{ padding: '8px' }} className="mono">GPIO 4</td>
               </tr>
               <tr>
-                <td style={{ padding: '8px' }}>OLED + STM32</td>
+                <td style={{ padding: '8px' }}>OLED + STM32 (Neurick)</td>
                 <td style={{ padding: '8px' }}>I2C Bus (0x3C / 0x08)</td>
                 <td style={{ padding: '8px' }} className="mono">GPIO 8 (SDA) / 9 (SCL)</td>
               </tr>
             </tbody>
           </table>
+
+          {/* Live Scan Event Feed */}
+          {scanEvents.length > 0 && (
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Activity size={16} color="var(--accent-cyan)" />
+                <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>Live Scan Activity Feed</span>
+                <span className="status-dot status-dot-active" />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+                {scanEvents.map((evt, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px', borderRadius: '8px',
+                    background: i === 0 ? 'rgba(0, 242, 254, 0.06)' : 'rgba(255,255,255,0.02)',
+                    border: i === 0 ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid transparent',
+                    fontSize: '0.78rem',
+                    animation: i === 0 ? 'fadeSlideIn 0.4s ease-out' : 'none'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Radio size={12} color={evt.confirmed ? 'var(--accent-green)' : 'var(--accent-amber)'} />
+                      <span className="mono" style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{evt.uid}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>→ Delivery #{evt.deliveryId}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className={`badge ${evt.confirmed ? 'badge-green' : 'badge-amber'}`} style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                        {evt.confirmed ? 'ON-CHAIN' : 'PENDING'}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{evt.time}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
