@@ -318,11 +318,11 @@ export default function RecipientPortal({ signer, account, activeDeliveryId, onA
             padding: '18px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span className={`badge ${delivery?.recipientConfirmed ? 'badge-green' : 'badge-purple'}`}>Key 2</span>
+              <span className={`badge ${delivery?.recipientConfirmed ? 'badge-green' : 'badge-cyan'}`}>Key 2</span>
               {delivery?.recipientConfirmed ? (
                 <CheckCircle2 size={18} color="var(--accent-green)" />
               ) : (
-                <KeyRound size={18} color="var(--accent-purple)" />
+                <KeyRound size={18} color="var(--accent-cyan)" />
               )}
             </div>
             <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>BridgeKey Approval</div>

@@ -147,21 +147,21 @@ export default function TelegramBotPortal({ account }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       {/* Header Banner */}
-      <div className="glass-panel" style={{ padding: '28px', background: 'radial-gradient(ellipse at 80% 20%, rgba(0, 242, 254, 0.08) 0%, rgba(18, 24, 38, 0.95) 70%)' }}>
+      <div className="glass-panel" style={{ padding: '28px', background: 'radial-gradient(ellipse at 80% 20%, rgba(0, 242, 254, 0.12) 0%, rgba(2, 6, 12, 0.98) 70%)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
           <div style={{ display: 'flex', gap: '18px' }}>
             <div style={{
               width: '56px',
               height: '56px',
               borderRadius: '16px',
-              background: 'linear-gradient(135deg, #0088cc 0%, #00f2fe 100%)',
+              background: 'linear-gradient(135deg, #00f2fe 0%, #0088a8 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 25px rgba(0, 136, 204, 0.4)',
+              boxShadow: '0 0 25px rgba(0, 242, 254, 0.5)',
               flexShrink: 0
             }}>
-              <Send size={28} color="#fff" />
+              <Send size={28} color="#000000" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
@@ -186,11 +186,11 @@ export default function TelegramBotPortal({ account }) {
               target="_blank"
               rel="noreferrer"
               className="btn-primary"
-              style={{ textDecoration: 'none', background: 'linear-gradient(135deg, #0088cc 0%, #4facfe 100%)' }}
+              style={{ textDecoration: 'none', background: 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)', color: '#000000', fontWeight: 700 }}
             >
-              <Send size={16} />
+              <Send size={16} color="#000000" />
               <span>Open @{botStatus.botUsername}</span>
-              <ExternalLink size={14} />
+              <ExternalLink size={14} color="#000000" />
             </a>
           ) : (
             <div style={{
@@ -317,10 +317,10 @@ export default function TelegramBotPortal({ account }) {
         <div className="glass-panel" style={{ padding: '26px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Bell size={20} color="var(--accent-blue)" />
+              <Bell size={20} color="var(--accent-cyan)" />
               <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>2. Notification Test Bench</h3>
             </div>
-            <span className="badge badge-purple" style={{ fontSize: '0.72rem' }}>Live Test</span>
+            <span className="badge badge-cyan" style={{ fontSize: '0.72rem' }}>Live Test</span>
           </div>
 
           <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
@@ -510,7 +510,7 @@ export default function TelegramBotPortal({ account }) {
       {/* Card 3: Bot Configuration & Telegram Setup Guide */}
       <div className="glass-panel" style={{ padding: '26px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
-          <Terminal size={20} color="var(--accent-purple)" />
+          <Terminal size={20} color="var(--accent-cyan)" />
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>3. Bot Configuration & Custom Setup</h3>
         </div>
 

@@ -5,13 +5,14 @@ import { formatAddress, MST_CHAIN_ID_DECIMAL } from '../utils/web3';
 export default function Navbar({ account, balance, onConnect, isConnecting, contractAddress, onOpenTelegram }) {
   return (
     <header style={{
-      borderBottom: '1px solid var(--border-color)',
-      background: 'rgba(10, 13, 20, 0.85)',
-      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid rgba(0, 242, 254, 0.2)',
+      background: 'rgba(0, 0, 0, 0.92)',
+      backdropFilter: 'blur(16px)',
       position: 'sticky',
       top: 0,
       zIndex: 50,
-      padding: '16px 28px'
+      padding: '16px 28px',
+      boxShadow: '0 4px 30px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(0, 242, 254, 0.15)'
     }}>
       <div style={{
         maxWidth: '1280px',
@@ -28,18 +29,18 @@ export default function Navbar({ account, balance, onConnect, isConnecting, cont
             width: '42px',
             height: '42px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+            background: 'linear-gradient(135deg, #00f2fe 0%, #0099b8 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 20px rgba(0, 242, 254, 0.4)'
+            boxShadow: '0 0 25px rgba(0, 242, 254, 0.5)'
           }}>
-            <Cpu size={24} color="#050b14" />
+            <Cpu size={24} color="#000000" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-                MST <span style={{ color: 'var(--accent-cyan)' }}>SmartTerminal</span>
+                MST <span style={{ color: 'var(--accent-cyan)', textShadow: '0 0 15px rgba(0, 242, 254, 0.6)' }}>SmartTerminal</span>
               </span>
               <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
                 Multi-Sig 2.0
@@ -114,12 +115,13 @@ export default function Navbar({ account, balance, onConnect, isConnecting, cont
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #00f2fe 0%, #7f00ff 100%)',
+                background: 'linear-gradient(135deg, #00f2fe 0%, #0088b3 100%)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                boxShadow: '0 0 12px rgba(0, 242, 254, 0.4)'
               }}>
-                <ShieldCheck size={18} color="#fff" />
+                <ShieldCheck size={18} color="#000000" />
               </div>
             </div>
           ) : (
