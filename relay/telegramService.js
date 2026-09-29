@@ -308,23 +308,43 @@ class TelegramService {
     const text = msg.text.trim();
     const firstName = msg.from?.first_name || 'Friend';
 
-    if (text === '/start') {
+    if (text.startsWith('/start')) {
+      const parts = text.split(/\s+/);
+      let targetWallet = '0xb2CAcD0597ac693057aa80dA0eF9892b8951dd0a';
+      if (parts.length > 1 && parts[1].startsWith('0x') && parts[1].length === 42) {
+        targetWallet = parts[1];
+      }
+
+      // Auto-set as default chat ID and link current demo wallet
+      this.defaultChatId = chatId.toString();
+      this.linkWallet(targetWallet, chatId);
+
       const welcome = `👋 <b>Hello, ${firstName}! Welcome to MST Smart Terminal Bot!</b>\n\n` +
-                      `I provide real-time cryptographic notifications for your <b>Zero-Trust Multi-Sig Deliveries</b> on the <b>MST Blockchain</b>.\n\n` +
-                      `📌 <b>Quick Commands:</b>\n` +
-                      `• <code>/link &lt;0x_wallet_address&gt;</code> — Link your BridgeKey wallet to get personalized alerts!\n` +
-                      `• <code>/status &lt;delivery_id&gt;</code> — Check on-chain & hardware status (e.g. <code>/status 20</code>)\n` +
-                      `• <code>/telemetry</code> — View live environmental sensors (Temp, Gas, Ultrasonic)\n` +
-                      `• <code>/latest</code> — Show latest active delivery\n` +
-                      `• <code>/unlink</code> — Remove wallet association\n\n` +
+                      `✅ <b>Connected & Linked Successfully!</b>\n` +
+                      `• <b>Your Telegram Chat ID:</b> <code>${chatId}</code>\n` +
+                      `• <b>Linked Wallet:</b> <code>${targetWallet}</code>\n\n` +
+                      `You are now connected to receive real-time cryptographic notifications for your <b>Zero-Trust Multi-Sig Deliveries</b> on the <b>MST Blockchain</b>!\n\n` +
+                      `📌 <b>Available Commands:</b>\n` +
+                      `• <code>/status 20</code> — Check on-chain & hardware status of Delivery #20\n` +
+                      `• <code>/telemetry</code> — View live IoT sensors (Temp, Gas, Ultrasonic)\n` +
+                      `• <code>/link &lt;0x_wallet&gt;</code> — Link another wallet address\n` +
+                      `• <code>/latest</code> — Show latest active delivery\n\n` +
                       `🌐 <b>DApp:</b> <a href="https://mst-sandy.vercel.app">mst-sandy.vercel.app</a>`;
 
       await this.sendMessage(chatId, welcome, {
         inline_keyboard: [
           [{ text: '🌐 Open MST DApp', url: 'https://mst-sandy.vercel.app' }],
-          [{ text: '📡 Check Hardware Status', callback_data: 'cmd_telemetry' }]
+          [{ text: '📦 View Delivery #20 Status', callback_data: 'track_20' }],
+          [{ text: '📡 Live Terminal Telemetry', callback_data: 'cmd_telemetry' }]
         ]
       });
+
+      // Send immediate settled confirmation of Delivery #20 so user sees the live receipt
+      setTimeout(async () => {
+        try {
+          await this.sendDeliveryStatus(chatId, '20');
+        } catch (_) {}
+      }, 800);
       return;
     }
 
