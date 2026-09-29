@@ -13,12 +13,19 @@ export { PRESETS };
 
 export default function SenderPortal({ signer, account, balance, onConnect, onDeliveryCreated }) {
   const [courier, setCourier] = useState('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
-  const [recipient, setRecipient] = useState('0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
+  const [recipient, setRecipient] = useState(account || '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC');
   const [amount, setAmount] = useState('0.1');
   const [lat, setLat] = useState('28.6129');
   const [lon, setLon] = useState('77.2295');
   const [radius, setRadius] = useState('100');
   const [rfidUid, setRfidUid] = useState('CARD_MST_9921');
+
+  // Auto-populate recipient with user's connected wallet for easy testing
+  useEffect(() => {
+    if (account && (!recipient || recipient === '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC')) {
+      setRecipient(account);
+    }
+  }, [account]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
